@@ -1,0 +1,180 @@
+services:
+  traefik:
+    image: traefik:v3.7.13
+    container_name: demo-traefik
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.metrics.address=:8082
+      - --metrics.prometheus=true
+      - --metrics.prometheus.entrypoint=metrics
+      - --accesslog=true
+      - --accesslog.format=json
+      - --log.level=INFO
+      - --ping=true
+    ports:
+      - "8000:80"
+      - "8088:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - demo-net
+
+  gateway:
+    build:
+      context: ./services/gateway
+    container_name: demo-gateway
+    environment:
+      SERVICE_NAME: gateway-service
+      SERVICE_PORT: "8080"
+      STUDENT_SERVICE_URL: http://student-service:8081
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      DEPLOYMENT_ENVIRONMENT: development
+    expose:
+      - "8080"
+    depends_on:
+      student-service:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health/live', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    labels:
+      - traefik.enable=true
+      - 'traefik.http.routers.demo-gateway.rule=PathPrefix(`/`)'
+      - traefik.http.routers.demo-gateway.entrypoints=web
+      - traefik.http.routers.demo-gateway.service=demo-gateway
+      - traefik.http.services.demo-gateway.loadbalancer.server.port=8080
+      - traefik.docker.network=demo-observability-net
+    networks:
+      - demo-net
+
+  student-service:
+    build:
+      context: ./services/student
+    container_name: demo-student-service
+    environment:
+      SERVICE_NAME: student-service
+      SERVICE_PORT: "8081"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      DEPLOYMENT_ENVIRONMENT: development
+    expose:
+      - "8081"
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081/health/live', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - demo-net
+
+  otel-collector:
+    build:
+      context: ./observability
+      dockerfile: Dockerfile.otel
+    container_name: demo-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    depends_on:
+      - tempo
+      - loki
+    networks:
+      - demo-net
+
+  prometheus:
+    build:
+      context: ./observability
+      dockerfile: prometheus/Dockerfile
+    container_name: demo-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3d
+    volumes:
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      traefik:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+      student-service:
+        condition: service_healthy
+    networks:
+      - demo-net
+
+  loki:
+    build:
+      context: ./observability
+      dockerfile: loki/Dockerfile
+    container_name: demo-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - demo-net
+
+  tempo:
+    build:
+      context: ./observability
+      dockerfile: tempo/Dockerfile
+    container_name: demo-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"
+    networks:
+      - demo-net
+
+  grafana:
+    build:
+      context: ./observability
+      dockerfile: grafana/Dockerfile
+    container_name: demo-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - demo-net
+
+networks:
+  demo-net:
+    name: demo-observability-net
+
+volumes:
+  prometheus-data:
+  loki-data:
+  tempo-data:
+  grafana-data:
