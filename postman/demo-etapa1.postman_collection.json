@@ -1,0 +1,253 @@
+{
+  "info": {
+    "_postman_id": "demo-etapa1-infraestructura",
+    "name": "Demo Etapa 1 - Infraestructura Microservicios",
+    "description": "Colección para probar el stack Traefik → gateway-service → student-service. Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik, gateway y student-service estén healthy.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "description": "Entrada única HTTP: Traefik (puerto host 8000 → 80 del contenedor)"
+    },
+    {
+      "key": "grafana_url",
+      "value": "http://localhost:3000",
+      "description": "Grafana (admin/admin, configurable en .env)"
+    },
+    {
+      "key": "prometheus_url",
+      "value": "http://localhost:9090",
+      "description": "Prometheus UI"
+    },
+    {
+      "key": "student_id",
+      "value": "U00185589",
+      "description": "ID de estudiante usado en las pruebas del README"
+    },
+    {
+      "key": "trace_id",
+      "value": "",
+      "description": "Último trace_id capturado (lo rellenan los tests automáticamente)"
+    }
+  ],
+  "item": [
+    {
+      "name": "API vía Traefik",
+      "item": [
+        {
+          "name": "Index (info del servicio)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Devuelve JSON con el nombre del servicio y sus endpoints. Confirma que Traefik enruta al gateway-service."
+          },
+          "response": []
+        },
+        {
+          "name": "Demo - flujo OK",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
+                  "pm.test('student presente', () => pm.expect(body.student).to.exist);",
+                  "pm.collectionVariables.set('trace_id', body.trace_id);",
+                  "console.log('trace_id:', body.trace_id, '→ búscalo en Grafana/Tempo');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/demo?student_id={{student_id}}&delay_ms=150&fail=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "demo"],
+              "query": [
+                { "key": "student_id", "value": "{{student_id}}" },
+                { "key": "delay_ms", "value": "150", "description": "Latencia simulada (0-2000 ms)" },
+                { "key": "fail", "value": "0", "description": "1 = fuerza error 500 en student-service" }
+              ]
+            },
+            "description": "Equivalente a `make test-ok`. Flujo completo Traefik → gateway → student. Debe responder 200 con un trace_id (se guarda en la variable de colección `trace_id`)."
+          },
+          "response": []
+        },
+        {
+          "name": "Demo - error controlado (502)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 502 (gateway transforma el 500 de student)', () => pm.response.to.have.status(502));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok=false', () => pm.expect(body.ok).to.eql(false));",
+                  "pm.collectionVariables.set('trace_id', body.trace_id);",
+                  "console.log('trace_id:', body.trace_id, '→ verifica la traza de error en Tempo');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/demo?student_id={{student_id}}&delay_ms=100&fail=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "demo"],
+              "query": [
+                { "key": "student_id", "value": "{{student_id}}" },
+                { "key": "delay_ms", "value": "100" },
+                { "key": "fail", "value": "1" }
+              ]
+            },
+            "description": "Equivalente a `make test-fail`. student-service devuelve 500 y gateway-service lo transforma en 502. Útil para validar trazas y logs de error."
+          },
+          "response": []
+        },
+        {
+          "name": "Demo - latencia alta (1200ms)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/demo?student_id={{student_id}}&delay_ms=1200&fail=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "demo"],
+              "query": [
+                { "key": "student_id", "value": "{{student_id}}" },
+                { "key": "delay_ms", "value": "1200" },
+                { "key": "fail", "value": "0" }
+              ]
+            },
+            "description": "Incrementa la latencia observada sin tocar infraestructura. Comprueba el histograma demo_http_request_duration_seconds en Prometheus y la duración del span en Tempo."
+          },
+          "response": []
+        },
+        {
+          "name": "Health - liveness (vía gateway)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/live",
+              "host": ["{{base_url}}"],
+              "path": ["health", "live"]
+            },
+            "description": "GET /health/live del gateway-service a través de Traefik. Esperado: 200 {\"status\":\"UP\"}."
+          },
+          "response": []
+        },
+        {
+          "name": "Health - readiness (vía gateway)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/ready",
+              "host": ["{{base_url}}"],
+              "path": ["health", "ready"]
+            },
+            "description": "GET /health/ready del gateway-service a través de Traefik. El gateway comprueba que student-service responde."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Observabilidad",
+      "item": [
+        {
+          "name": "Métricas gateway (Prometheus format)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["metrics"]
+            },
+            "description": "Endpoint /metrics del gateway-service (texto plano formato Prometheus). Este mismo endpoint es scrapeado por Prometheus."
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar última traza en Tempo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3200/api/traces/{{trace_id}}",
+              "host": ["localhost"],
+              "port": "3200",
+              "path": ["api", "traces", "{{trace_id}}"]
+            },
+            "description": "Recupera de Tempo la última traza generada (usa la variable trace_id guardada por los tests). Ejecuta antes 'Demo - flujo OK'."
+          },
+          "response": []
+        },
+        {
+          "name": "Loki - ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3100/ready",
+              "host": ["localhost"],
+              "port": "3100",
+              "path": ["ready"]
+            },
+            "description": "Estado de Loki. Esperado: 'ready'."
+          },
+          "response": []
+        },
+        {
+          "name": "Tempo - ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3200/ready",
+              "host": ["localhost"],
+              "port": "3200",
+              "path": ["ready"]
+            },
+            "description": "Estado de Tempo. Esperado: 'ready'."
+          },
+          "response": []
+        },
+        {
+          "name": "Prometheus - targets activos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{prometheus_url}}/api/v1/targets?state=active",
+              "host": ["{{prometheus_url}}"],
+              "path": ["api", "v1", "targets"],
+              "query": [
+                { "key": "state", "value": "active" }
+              ]
+            },
+            "description": "Lista los targets de scrapeo (traefik, gateway-service, student-service) y su health. Todos deben estar 'up'."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
