@@ -1,10 +1,21 @@
 const { trace } = require("@opentelemetry/api");
 const { logs, SeverityNumber } = require("@opentelemetry/api-logs");
 const client = require("prom-client");
+const { Pool } = require("pg");
+const { createClient } = require("redis");
 const fastify = require("fastify")();
 
 const SERVICE_NAME = process.env.SERVICE_NAME || "test-fastify-service";
 const PORT = Number(process.env.SERVICE_PORT || 8084);
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://demo:demo@postgres:5432/demo";
+const REDIS_URL = process.env.REDIS_URL || "redis://redis:6379/0";
+const CACHE_KEY = "node:items";
+const CACHE_TTL_SECONDS = 30;
+
+const pool = new Pool({ connectionString: DATABASE_URL });
+pool.on("error", (err) => console.error(JSON.stringify({ event: "pg_pool_error", error: err.message })));
+const cache = createClient({ url: REDIS_URL });
+cache.on("error", (err) => console.error(JSON.stringify({ event: "redis_error", error: err.message })));
 
 const tracer = trace.getTracer(SERVICE_NAME);
 const otelLogger = logs.getLogger(SERVICE_NAME);
@@ -76,6 +87,77 @@ fastify.get("/api/node", async (request, reply) => {
   }
 });
 
+function withSpan(name, attributes, fn) {
+  return tracer.startActiveSpan(name, async (span) => {
+    try {
+      span.setAttributes(attributes);
+      return await fn();
+    } finally {
+      span.end();
+    }
+  });
+}
+
+function track(route) {
+  const end = DURATION.startTimer({ service: SERVICE_NAME, route });
+  return (status) => {
+    REQUESTS.inc({ service: SERVICE_NAME, route, status: String(status) });
+    end();
+  };
+}
+
+fastify.post(
+  "/api/node/items",
+  {
+    schema: {
+      body: {
+        type: "object",
+        required: ["name"],
+        properties: { name: { type: "string", minLength: 1, maxLength: 100 } },
+      },
+    },
+  },
+  async (request, reply) => {
+    const done = track("/api/node/items");
+    let status = 500;
+    try {
+      const { rows } = await withSpan("node.db_insert", { "db.system": "postgresql" }, () =>
+        pool.query("INSERT INTO node_items (name) VALUES ($1) RETURNING id, name, created_at", [request.body.name])
+      );
+      // El cache queda obsoleto tras escribir
+      await cache.del(CACHE_KEY);
+      structuredLog("item_created", { item_id: rows[0].id });
+      status = 201;
+      return reply.code(status).send(rows[0]);
+    } finally {
+      done(status);
+    }
+  }
+);
+
+fastify.get("/api/node/items", async () => {
+  const done = track("/api/node/items");
+  let status = 500;
+  try {
+    const cached = await withSpan("node.cache_lookup", { "db.system": "redis" }, () => cache.get(CACHE_KEY));
+    if (cached) {
+      structuredLog("items_cache_hit");
+      status = 200;
+      return { ok: true, source: "cache", items: JSON.parse(cached) };
+    }
+
+    const { rows } = await withSpan("node.db_select", { "db.system": "postgresql" }, () =>
+      pool.query("SELECT id, name, created_at FROM node_items ORDER BY id DESC LIMIT 20")
+    );
+    await cache.set(CACHE_KEY, JSON.stringify(rows), { EX: CACHE_TTL_SECONDS });
+    structuredLog("items_cache_miss", { count: rows.length });
+    status = 200;
+    return { ok: true, source: "db", items: rows };
+  } finally {
+    done(status);
+  }
+});
+
 fastify.get("/metrics", async (_request, reply) => {
   reply.header("Content-Type", client.register.contentType);
   return client.register.metrics();
@@ -84,7 +166,16 @@ fastify.get("/metrics", async (_request, reply) => {
 fastify.get("/health/live", async () => ({ status: "UP", service: SERVICE_NAME }));
 fastify.get("/health/ready", async () => ({ status: "UP", service: SERVICE_NAME }));
 
-fastify.listen({ host: "0.0.0.0", port: PORT }).catch((err) => {
+async function main() {
+  await pool.query(
+    "CREATE TABLE IF NOT EXISTS node_items (" +
+      "id SERIAL PRIMARY KEY, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+  );
+  await cache.connect();
+  await fastify.listen({ host: "0.0.0.0", port: PORT });
+}
+
+main().catch((err) => {
   console.error(err);
   process.exit(1);
 });

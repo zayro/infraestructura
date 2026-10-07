@@ -52,10 +52,14 @@ El antiguo `gateway-service` se elimino porque Traefik ya cumple ese papel.
 | `student-service` | Python 3.12 / Flask | 8081 | `/` (catch-all) | `/`, `/api/demo`, `/students/<id>` |
 | `test-fastapi-service` | Python 3.12 / FastAPI + Uvicorn | 8083 | `/api/test` | `/api/test` |
 | `test-fastify-service` | Node.js 22 / Fastify 5 | 8084 | `/api/node` | `/api/node` |
+| `postgres` | PostgreSQL 17 | 5432 | no expuesto | volumen `postgres-data` |
+| `redis` | Redis 7 (AOF) | 6379 | no expuesto | volumen `redis-data` |
 
 Todos exponen tambien `/metrics`, `/health/live` y `/health/ready`, envian trazas y logs por OTLP al collector y publican las metricas `demo_http_requests_total` y `demo_http_request_duration_seconds`.
 
 Los servicios de prueba aceptan los parametros `delay_ms` (0-2000, latencia simulada) y `fail=1` (error 500 simulado). Las rutas `/api/test` y `/api/node` son mas especificas que `/`, por lo que Traefik las prioriza.
+
+Los servicios de prueba tambien exponen un ejemplo CRUD con PostgreSQL y cache Redis (patron cache-aside, TTL 30 s): `/api/test/items` (FastAPI, tabla `test_items`) y `/api/node/items` (Fastify, tabla `node_items`). `postgres` y `redis` solo son accesibles desde la red Docker; sus datos persisten en los volumenes `postgres-data` y `redis-data`. Las credenciales se configuran con `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB` (ver `.env.example`; evita caracteres especiales en la contrasena porque se usa dentro de una URL).
 
 Codigo en `services/student`, `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene su propio `Dockerfile` y su copia de la configuracion de telemetria.
 
@@ -141,7 +145,29 @@ curl -i "http://localhost:8000/api/node?fail=1"
 
 Respuesta correcta (200): `{"ok":true,"service":"...","trace_id":"...","message":"pong"}`. Con `fail=1` responden 500.
 
-### 6. Rate limit
+### 6. PostgreSQL y Redis (ejemplo de items)
+
+```bash
+curl -X POST http://localhost:8000/api/test/items -H "Content-Type: application/json" -d '{"name":"demo"}'
+curl http://localhost:8000/api/test/items   # source: "db" (primera lectura)
+curl http://localhost:8000/api/test/items   # source: "cache" (hasta 30 s)
+
+curl -X POST http://localhost:8000/api/node/items -H "Content-Type: application/json" -d '{"name":"demo"}'
+curl http://localhost:8000/api/node/items
+```
+
+El `POST` devuelve 201 e invalida la cache; el `GET` indica en `source` si el dato vino de `db` o `cache`. Cada operacion genera spans (`*.db_insert`, `*.cache_lookup`, `*.db_select`) visibles en Tempo. Los datos sobreviven a `docker compose down` (sin `-v`).
+
+Al crear el volumen por primera vez, Postgres ejecuta `postgres/init/script.sql` (montado en `/docker-entrypoint-initdb.d`): crea las tablas `test_items` y `node_items` y carga 3 filas semilla en cada una. Si el volumen ya existe el script no se vuelve a ejecutar; para recargarlo hay que recrear el volumen (`docker compose down -v`, destructivo: borra tambien los datos de Redis y Grafana).
+
+Consultar directamente:
+
+```bash
+docker exec demo-postgres psql -U demo -d demo -c "select * from test_items"
+docker exec demo-redis redis-cli keys "*"
+```
+
+### 7. Rate limit
 
 ```bash
 # 80 peticiones en paralelo (PowerShell 7)

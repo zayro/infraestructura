@@ -1,21 +1,49 @@
 import asyncio
+import json
 import os
 import time
+from contextlib import asynccontextmanager
 
+import redis.asyncio as redis
 import uvicorn
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse, Response
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from psycopg_pool import AsyncConnectionPool
+from pydantic import BaseModel, Field
 
 from telemetry import setup_telemetry, structured_log
 
 SERVICE_NAME = os.getenv("SERVICE_NAME", "test-fastapi-service")
 PORT = int(os.getenv("SERVICE_PORT", "8083"))
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://demo:demo@postgres:5432/demo")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+CACHE_KEY = "test:items"
+CACHE_TTL_SECONDS = 30
 
 tracer, logger = setup_telemetry(SERVICE_NAME)
-app = FastAPI(title=SERVICE_NAME)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.pool = AsyncConnectionPool(DATABASE_URL, open=False)
+    await app.state.pool.open(wait=True)
+    async with app.state.pool.connection() as conn:
+        await conn.execute(
+            "CREATE TABLE IF NOT EXISTS test_items ("
+            "id SERIAL PRIMARY KEY, "
+            "name TEXT NOT NULL, "
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+        )
+    app.state.redis = redis.from_url(REDIS_URL, decode_responses=True)
+    yield
+    await app.state.redis.aclose()
+    await app.state.pool.close()
+
+
+app = FastAPI(title=SERVICE_NAME, lifespan=lifespan)
 FastAPIInstrumentor.instrument_app(app, excluded_urls="metrics,health")
 
 REQUESTS = Counter(
@@ -72,6 +100,69 @@ async def test(
     finally:
         REQUESTS.labels(SERVICE_NAME, route, str(status)).inc()
         DURATION.labels(SERVICE_NAME, route).observe(time.perf_counter() - started)
+
+
+class ItemIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+def record(route: str, status: int, started: float):
+    REQUESTS.labels(SERVICE_NAME, route, str(status)).inc()
+    DURATION.labels(SERVICE_NAME, route).observe(time.perf_counter() - started)
+
+
+@app.post("/api/test/items", status_code=201)
+async def create_item(item: ItemIn):
+    started = time.perf_counter()
+    try:
+        with tracer.start_as_current_span("test.db_insert") as span:
+            span.set_attribute("db.system", "postgresql")
+            async with app.state.pool.connection() as conn:
+                cur = await conn.execute(
+                    "INSERT INTO test_items (name) VALUES (%s) RETURNING id, name, created_at",
+                    (item.name,),
+                )
+                row = await cur.fetchone()
+
+        # El cache queda obsoleto tras escribir
+        await app.state.redis.delete(CACHE_KEY)
+        structured_log(logger, "item_created", item_id=row[0])
+        record("/api/test/items", 201, started)
+        return {"id": row[0], "name": row[1], "created_at": row[2].isoformat()}
+    except Exception:
+        record("/api/test/items", 500, started)
+        raise
+
+
+@app.get("/api/test/items")
+async def list_items():
+    started = time.perf_counter()
+    try:
+        with tracer.start_as_current_span("test.cache_lookup") as span:
+            span.set_attribute("db.system", "redis")
+            cached = await app.state.redis.get(CACHE_KEY)
+
+        if cached:
+            structured_log(logger, "items_cache_hit")
+            record("/api/test/items", 200, started)
+            return {"ok": True, "source": "cache", "items": json.loads(cached)}
+
+        with tracer.start_as_current_span("test.db_select") as span:
+            span.set_attribute("db.system", "postgresql")
+            async with app.state.pool.connection() as conn:
+                cur = await conn.execute(
+                    "SELECT id, name, created_at FROM test_items ORDER BY id DESC LIMIT 20"
+                )
+                rows = await cur.fetchall()
+
+        items = [{"id": r[0], "name": r[1], "created_at": r[2].isoformat()} for r in rows]
+        await app.state.redis.set(CACHE_KEY, json.dumps(items), ex=CACHE_TTL_SECONDS)
+        structured_log(logger, "items_cache_miss", count=len(items))
+        record("/api/test/items", 200, started)
+        return {"ok": True, "source": "db", "items": items}
+    except Exception:
+        record("/api/test/items", 500, started)
+        raise
 
 
 @app.get("/metrics")

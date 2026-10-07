@@ -15,6 +15,13 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: false
+    jsonData:
+      derivedFields:
+        - name: trace_id
+          datasourceUid: tempo
+          matcherRegex: '"trace_id":"(\w+)"'
+          url: '$${__value.raw}'
+          urlDisplayLabel: Ver traza en Tempo
 
   - name: Tempo
     type: tempo
@@ -29,3 +36,15 @@ datasources:
         filterBySpanID: false
         spanStartTimeShift: -1m
         spanEndTimeShift: 1m
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: -1m
+        spanEndTimeShift: 1m
+        tags:
+          - key: service.name
+            value: service
+        queries:
+          - name: Solicitudes por segundo
+            query: sum(rate(demo_http_requests_total{$$__tags}[1m]))
+          - name: Latencia p95
+            query: histogram_quantile(0.95, sum by (le) (rate(demo_http_request_duration_seconds_bucket{$$__tags}[5m])))

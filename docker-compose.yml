@@ -82,11 +82,17 @@ services:
       SERVICE_PORT: "8083"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       DEPLOYMENT_ENVIRONMENT: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-demo}:${POSTGRES_PASSWORD:-demo}@postgres:5432/${POSTGRES_DB:-demo}
+      REDIS_URL: redis://redis:6379/0
     expose:
       - "8083"
     depends_on:
       otel-collector:
         condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/health/live', timeout=2)"]
       interval: 10s
@@ -113,11 +119,17 @@ services:
       SERVICE_PORT: "8084"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       DEPLOYMENT_ENVIRONMENT: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-demo}:${POSTGRES_PASSWORD:-demo}@postgres:5432/${POSTGRES_DB:-demo}
+      REDIS_URL: redis://redis:6379/0
     expose:
       - "8084"
     depends_on:
       otel-collector:
         condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8084/health/live"]
       interval: 10s
@@ -132,6 +144,44 @@ services:
       - traefik.http.routers.demo-test-fastify.service=demo-test-fastify
       - traefik.http.services.demo-test-fastify.loadbalancer.server.port=8084
       - traefik.docker.network=demo-observability-net
+    networks:
+      - demo-net
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: demo-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-demo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-demo}
+      POSTGRES_DB: ${POSTGRES_DB:-demo}
+    expose:
+      - "5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init/script.sql:/docker-entrypoint-initdb.d/script.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - demo-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: demo-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    expose:
+      - "6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks:
       - demo-net
 
@@ -227,3 +277,5 @@ volumes:
   loki-data:
   tempo-data:
   grafana-data:
+  postgres-data:
+  redis-data:
