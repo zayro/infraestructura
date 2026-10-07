@@ -3,7 +3,7 @@
 Entorno de desarrollo autocontenido para validar:
 
 - Traefik como punto unico de entrada / API Gateway ligero;
-- dos microservicios HTTP;
+- microservicios HTTP (`student-service` y servicios de prueba en FastAPI y Fastify);
 - propagacion de trazas entre servicios;
 - OpenTelemetry Collector;
 - Prometheus para metricas;
@@ -23,16 +23,12 @@ Cliente
 Traefik
   |  reverse proxy / routing
   v
-gateway-service :8080 (solo red Docker)
-  |
-  | HTTP + traceparent
-  v
 student-service :8081 (solo red Docker)
 
 Traefik
   `-- /metrics :8082 -------------> Prometheus
 
-Ambos microservicios
+Cada microservicio
   |-- /metrics --------------------> Prometheus
   |-- OTLP traces/logs ------------> OpenTelemetry Collector
                                         |-- traces --> Tempo
@@ -41,14 +37,13 @@ Ambos microservicios
 Prometheus + Loki + Tempo ----------> Grafana
 ```
 
-### Rol de cada gateway
+### Rol de cada componente
 
-En este laboratorio hay dos conceptos diferentes:
+- `traefik`: API gateway. Es el unico punto HTTP publicado para las APIs, decide a que servicio enrutar y aplica rate limit, limite de concurrencia y cabeceras de seguridad.
+- `student-service`: microservicio de aplicacion (Flask). Atiende `/`, `/api/demo`, `/students/<id>` y los health checks.
+- `test-fastapi-service` (`/api/test`) y `test-fastify-service` (`/api/node`): servicios de prueba.
 
-- `traefik`: gateway de infraestructura. Es el unico punto HTTP publicado para las APIs y decide a que servicio enrutar.
-- `gateway-service`: microservicio de aplicacion existente en el ejercicio. Coordina la consulta al `student-service` y conserva la logica del demo anterior.
-
-No se renombra el `gateway-service` para mantener compatibilidad con el ejercicio anterior.
+El antiguo `gateway-service` se elimino porque Traefik ya cumple ese papel.
 
 ## Requisitos
 
@@ -72,7 +67,7 @@ docker compose ps
 Logs principales:
 
 ```bash
-docker compose logs -f traefik gateway student-service otel-collector
+docker compose logs -f traefik student-service otel-collector
 ```
 
 ## Pruebas funcionales
@@ -80,7 +75,7 @@ docker compose logs -f traefik gateway student-service otel-collector
 ### 1. Flujo correcto pasando obligatoriamente por Traefik
 
 ```bash
-curl "http://localhost/api/demo?student_id=U00185589&delay_ms=150&fail=0"
+curl "http://localhost:8000/api/demo?student_id=U00185589&delay_ms=150&fail=0"
 ```
 
 Flujo esperado:
@@ -92,9 +87,6 @@ curl
 Traefik :80
   |
   v
-gateway-service :8080
-  |
-  v
 student-service :8081
 ```
 
@@ -103,24 +95,24 @@ Debe responder HTTP 200 e incluir un `trace_id` generado por el microservicio.
 ### 2. Error controlado
 
 ```bash
-curl -i "http://localhost/api/demo?student_id=U00185589&delay_ms=100&fail=1"
+curl -i "http://localhost:8000/api/demo?student_id=U00185589&delay_ms=100&fail=1"
 ```
 
-El `student-service` retorna 500 y el `gateway-service` lo transforma en 502. Traefik reenvia esa respuesta al cliente.
+El `student-service` retorna 500 y Traefik reenvia esa respuesta al cliente.
 
 ### 3. Latencia
 
 ```bash
-curl "http://localhost/api/demo?student_id=U00185589&delay_ms=1200&fail=0"
+curl "http://localhost:8000/api/demo?student_id=U00185589&delay_ms=1200&fail=0"
 ```
 
 Esto incrementa la latencia observada sin modificar infraestructura.
 
-### 4. Health check a traves del gateway
+### 4. Health check a traves de Traefik
 
 ```bash
-curl -i http://localhost/health/live
-curl -i http://localhost/health/ready
+curl -i http://localhost:8000/health/live
+curl -i http://localhost:8000/health/ready
 ```
 
 ## Interfaces
@@ -134,9 +126,9 @@ curl -i http://localhost/health/ready
 | Loki | http://localhost:3100/ready | Estado de Loki |
 | Tempo | http://localhost:3200/ready | Estado de Tempo |
 
-`gateway-service` y `student-service` ya no publican puertos hacia el host. Permanecen accesibles solamente dentro de `demo-observability-net`.
+Los microservicios no publican puertos hacia el host. Permanecen accesibles solamente dentro de `demo-observability-net`.
 
-`http://localhost/` devuelve un JSON con el nombre del servicio y sus endpoints; no es una pagina HTML. La interfaz visual de observabilidad esta en `http://localhost:3000`.
+`http://localhost:8000/` devuelve un JSON con el nombre del servicio y sus endpoints; no es una pagina HTML. La interfaz visual de observabilidad esta en `http://localhost:3000`.
 
 Credenciales iniciales de Grafana:
 
@@ -155,7 +147,7 @@ Traefik descubre unicamente los contenedores habilitados explicitamente porque s
 providers.docker.exposedByDefault=false
 ```
 
-El `gateway-service` se publica mediante labels y Traefik enruta todo `PathPrefix(`/`)` hacia el puerto interno `8080`.
+El `student-service` se publica mediante labels y Traefik enruta todo `PathPrefix(`/`)` hacia el puerto interno `8081`.
 
 El dashboard de Traefik se expone con `api.insecure=true` exclusivamente para este entorno de desarrollo. No debe utilizarse asi en produccion.
 
@@ -204,7 +196,7 @@ Para revisar trazas:
 1. Abra Grafana.
 2. Vaya a Explore.
 3. Seleccione `Tempo`.
-4. Busque trazas recientes o utilice el `trace_id` retornado por el gateway.
+4. Busque trazas recientes o utilice el `trace_id` retornado por el servicio.
 
 Para revisar logs de los microservicios:
 
@@ -213,7 +205,7 @@ Para revisar logs de los microservicios:
 3. Consulte, por ejemplo:
 
 ```logql
-{service_name="gateway-service"}
+{service_name="student-service"}
 ```
 
 O:
@@ -260,15 +252,6 @@ sum by (service) (rate(demo_http_requests_total{status=~"5.."}[1m]))
 
 Traefik utiliza su `ping` interno como health check del contenedor.
 
-Gateway:
-
-```text
-GET /health/live
-GET /health/ready
-```
-
-`/health/ready` comprueba que `student-service` sea accesible.
-
 Student service:
 
 ```text
@@ -280,10 +263,10 @@ GET /health/ready
 
 ```bash
 docker compose stop student-service
-curl -i http://localhost/health/ready
+curl -i http://localhost:8000/health/ready
 ```
 
-Debe retornar 503 desde el `gateway-service`, pasando por Traefik.
+Traefik deja de enrutar al servicio no saludable y responde 404/503.
 
 Para restaurar:
 
@@ -309,8 +292,8 @@ docker compose down -v
 
 - Traefik se agrega como capa de entrada sin modificar el codigo de los microservicios.
 - No se cambia el contrato de `/api/demo`, `/health/live` ni `/health/ready`.
-- `gateway-service` y `student-service` dejan de exponerse directamente al host para evitar bypass del API Gateway.
-- No se agrega autenticacion, TLS, rate limiting ni middleware funcional: no fueron solicitados y cambiarian el alcance.
+- Los microservicios dejan de exponerse directamente al host para evitar bypass del API Gateway.
+- Traefik aplica rate limit, limite de concurrencia y cabeceras de seguridad (middlewares `demo-*`). No se agrega autenticacion ni TLS.
 - No se usa una base de datos: no existe una regla funcional ni un esquema suministrado que justifique agregarla.
 - No se usa RabbitMQ/Kafka: no existe todavia un flujo asincrono que lo requiera.
 - No se usa Kubernetes/Istio: corresponden a una evolucion posterior del laboratorio.
@@ -320,9 +303,9 @@ docker compose down -v
 ## Pruebas sugeridas
 
 1. Levantar todos los contenedores y verificar `docker compose ps`.
-2. Confirmar que `gateway` y `student-service` no tengan puertos publicados al host.
-3. Abrir `http://localhost:8088/dashboard/` y confirmar el router `demo-gateway`.
-4. Ejecutar 10 solicitudes correctas mediante `http://localhost/api/demo`.
+2. Confirmar que `student-service` no tenga puertos publicados al host.
+3. Abrir `http://localhost:8088/dashboard/` y confirmar el router `demo-student`.
+4. Ejecutar 10 solicitudes correctas mediante `http://localhost:8000/api/demo`.
 5. Ejecutar 3 solicitudes con `fail=1`.
 6. Ejecutar 3 solicitudes con `delay_ms=1200`.
 7. Confirmar el target `traefik` como `UP` en Prometheus.

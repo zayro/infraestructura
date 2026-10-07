@@ -133,7 +133,7 @@
       },
       "targets": [
         {
-          "expr": "{service_name=~\"gateway-service|student-service\"}",
+          "expr": "{service_name=~\"student-service|test-fastapi-service|test-fastify-service\"}",
           "refId": "A"
         }
       ],

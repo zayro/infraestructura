@@ -32,10 +32,33 @@ def current_trace_id():
     return format(ctx.trace_id, "032x") if ctx.is_valid else None
 
 
+@app.get("/")
+def index():
+    return jsonify(
+        service=SERVICE_NAME,
+        endpoints={
+            "demo": "/api/demo?student_id=U00185589&delay_ms=100&fail=0",
+            "student": "/students/U00185589",
+            "metrics": "/metrics",
+            "live": "/health/live",
+            "ready": "/health/ready",
+        },
+        trace_id=current_trace_id(),
+    )
+
+
+@app.get("/api/demo")
+def demo():
+    return lookup_student(request.args.get("student_id", "U00185589"), "/api/demo")
+
+
 @app.get("/students/<student_id>")
 def student(student_id):
+    return lookup_student(student_id, "/students/:id")
+
+
+def lookup_student(student_id, route):
     started = time.perf_counter()
-    route = "/students/:id"
     status = 200
 
     try:

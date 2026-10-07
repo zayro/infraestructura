@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "demo-etapa1-infraestructura",
     "name": "Demo Etapa 1 - Infraestructura Microservicios",
-    "description": "Colección para probar el stack Traefik → gateway-service → student-service. Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik, gateway y student-service estén healthy.",
+    "description": "Colección para probar el stack Traefik → student-service. Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik y student-service estén healthy.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -46,7 +46,7 @@
               "host": ["{{base_url}}"],
               "path": [""]
             },
-            "description": "Devuelve JSON con el nombre del servicio y sus endpoints. Confirma que Traefik enruta al gateway-service."
+            "description": "Devuelve JSON con el nombre del servicio y sus endpoints. Confirma que Traefik enruta al student-service."
           },
           "response": []
         },
@@ -81,7 +81,7 @@
                 { "key": "fail", "value": "0", "description": "1 = fuerza error 500 en student-service" }
               ]
             },
-            "description": "Equivalente a `make test-ok`. Flujo completo Traefik → gateway → student. Debe responder 200 con un trace_id (se guarda en la variable de colección `trace_id`)."
+            "description": "Equivalente a `make test-ok`. Flujo Traefik → student. Debe responder 200 con un trace_id (se guarda en la variable de colección `trace_id`)."
           },
           "response": []
         },
@@ -93,7 +93,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('status 502 (gateway transforma el 500 de student)', () => pm.response.to.have.status(502));",
+                  "pm.test('status 500 (error simulado de student)', () => pm.response.to.have.status(500));",
                   "const body = pm.response.json();",
                   "pm.test('ok=false', () => pm.expect(body.ok).to.eql(false));",
                   "pm.collectionVariables.set('trace_id', body.trace_id);",
@@ -115,7 +115,7 @@
                 { "key": "fail", "value": "1" }
               ]
             },
-            "description": "Equivalente a `make test-fail`. student-service devuelve 500 y gateway-service lo transforma en 502. Útil para validar trazas y logs de error."
+            "description": "Equivalente a `make test-fail`. student-service devuelve 500. Útil para validar trazas y logs de error."
           },
           "response": []
         },
@@ -139,7 +139,7 @@
           "response": []
         },
         {
-          "name": "Health - liveness (vía gateway)",
+          "name": "Health - liveness (vía Traefik)",
           "request": {
             "method": "GET",
             "header": [],
@@ -148,12 +148,12 @@
               "host": ["{{base_url}}"],
               "path": ["health", "live"]
             },
-            "description": "GET /health/live del gateway-service a través de Traefik. Esperado: 200 {\"status\":\"UP\"}."
+            "description": "GET /health/live del student-service a través de Traefik. Esperado: 200 {\"status\":\"UP\"}."
           },
           "response": []
         },
         {
-          "name": "Health - readiness (vía gateway)",
+          "name": "Health - readiness (vía Traefik)",
           "request": {
             "method": "GET",
             "header": [],
@@ -162,7 +162,7 @@
               "host": ["{{base_url}}"],
               "path": ["health", "ready"]
             },
-            "description": "GET /health/ready del gateway-service a través de Traefik. El gateway comprueba que student-service responde."
+            "description": "GET /health/ready del student-service a través de Traefik."
           },
           "response": []
         }
@@ -172,7 +172,7 @@
       "name": "Observabilidad",
       "item": [
         {
-          "name": "Métricas gateway (Prometheus format)",
+          "name": "Métricas student (Prometheus format)",
           "request": {
             "method": "GET",
             "header": [],
@@ -181,7 +181,7 @@
               "host": ["{{base_url}}"],
               "path": ["metrics"]
             },
-            "description": "Endpoint /metrics del gateway-service (texto plano formato Prometheus). Este mismo endpoint es scrapeado por Prometheus."
+            "description": "Endpoint /metrics del student-service (texto plano formato Prometheus). Este mismo endpoint es scrapeado por Prometheus."
           },
           "response": []
         },
@@ -243,7 +243,7 @@
                 { "key": "state", "value": "active" }
               ]
             },
-            "description": "Lista los targets de scrapeo (traefik, gateway-service, student-service) y su health. Todos deben estar 'up'."
+            "description": "Lista los targets de scrapeo (traefik, student-service, test-fastapi-service, test-fastify-service) y su health. Todos deben estar 'up'."
           },
           "response": []
         }

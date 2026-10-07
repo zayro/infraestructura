@@ -21,7 +21,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      gateway:
+      student-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
@@ -29,39 +29,6 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
-    networks:
-      - demo-net
-
-  gateway:
-    build:
-      context: ./services/gateway
-    container_name: demo-gateway
-    environment:
-      SERVICE_NAME: gateway-service
-      SERVICE_PORT: "8080"
-      STUDENT_SERVICE_URL: http://student-service:8081
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      DEPLOYMENT_ENVIRONMENT: development
-    expose:
-      - "8080"
-    depends_on:
-      student-service:
-        condition: service_healthy
-      otel-collector:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health/live', timeout=2)"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
-    labels:
-      - traefik.enable=true
-      - 'traefik.http.routers.demo-gateway.rule=PathPrefix(`/`)'
-      - traefik.http.routers.demo-gateway.entrypoints=web
-      - traefik.http.routers.demo-gateway.service=demo-gateway
-      - traefik.http.services.demo-gateway.loadbalancer.server.port=8080
-      - traefik.docker.network=demo-observability-net
     networks:
       - demo-net
 
@@ -85,6 +52,86 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+    labels:
+      - traefik.enable=true
+      - 'traefik.http.routers.demo-student.rule=PathPrefix(`/`)'
+      - traefik.http.routers.demo-student.entrypoints=web
+      - traefik.http.routers.demo-student.middlewares=demo-ratelimit,demo-inflight,demo-secure-headers
+      - traefik.http.routers.demo-student.service=demo-student
+      - traefik.http.services.demo-student.loadbalancer.server.port=8081
+      # Middlewares compartidos por todos los routers (referenciados como <nombre>@docker)
+      - traefik.http.middlewares.demo-ratelimit.ratelimit.average=${RATE_LIMIT_AVERAGE:-10}
+      - traefik.http.middlewares.demo-ratelimit.ratelimit.period=1s
+      - traefik.http.middlewares.demo-ratelimit.ratelimit.burst=${RATE_LIMIT_BURST:-20}
+      - traefik.http.middlewares.demo-inflight.inflightreq.amount=${MAX_INFLIGHT_REQUESTS:-50}
+      - traefik.http.middlewares.demo-secure-headers.headers.contenttypenosniff=true
+      - traefik.http.middlewares.demo-secure-headers.headers.frameDeny=true
+      - traefik.http.middlewares.demo-secure-headers.headers.browserxssfilter=true
+      - traefik.http.middlewares.demo-secure-headers.headers.customresponseheaders.X-Powered-By=
+      - traefik.http.middlewares.demo-secure-headers.headers.customresponseheaders.Server=
+      - traefik.docker.network=demo-observability-net
+    networks:
+      - demo-net
+
+  test-fastapi-service:
+    build:
+      context: ./services/test-fastapi
+    container_name: demo-test-fastapi-service
+    environment:
+      SERVICE_NAME: test-fastapi-service
+      SERVICE_PORT: "8083"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      DEPLOYMENT_ENVIRONMENT: development
+    expose:
+      - "8083"
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/health/live', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    labels:
+      - traefik.enable=true
+      - 'traefik.http.routers.demo-test-fastapi.rule=PathPrefix(`/api/test`)'
+      - traefik.http.routers.demo-test-fastapi.entrypoints=web
+      - traefik.http.routers.demo-test-fastapi.middlewares=demo-ratelimit@docker,demo-inflight@docker,demo-secure-headers@docker
+      - traefik.http.routers.demo-test-fastapi.service=demo-test-fastapi
+      - traefik.http.services.demo-test-fastapi.loadbalancer.server.port=8083
+      - traefik.docker.network=demo-observability-net
+    networks:
+      - demo-net
+
+  test-fastify-service:
+    build:
+      context: ./services/test-fastify
+    container_name: demo-test-fastify-service
+    environment:
+      SERVICE_NAME: test-fastify-service
+      SERVICE_PORT: "8084"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      DEPLOYMENT_ENVIRONMENT: development
+    expose:
+      - "8084"
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8084/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    labels:
+      - traefik.enable=true
+      - 'traefik.http.routers.demo-test-fastify.rule=PathPrefix(`/api/node`)'
+      - traefik.http.routers.demo-test-fastify.entrypoints=web
+      - traefik.http.routers.demo-test-fastify.middlewares=demo-ratelimit@docker,demo-inflight@docker,demo-secure-headers@docker
+      - traefik.http.routers.demo-test-fastify.service=demo-test-fastify
+      - traefik.http.services.demo-test-fastify.loadbalancer.server.port=8084
+      - traefik.docker.network=demo-observability-net
     networks:
       - demo-net
 
@@ -116,9 +163,11 @@ services:
     depends_on:
       traefik:
         condition: service_healthy
-      gateway:
-        condition: service_healthy
       student-service:
+        condition: service_healthy
+      test-fastapi-service:
+        condition: service_healthy
+      test-fastify-service:
         condition: service_healthy
     networks:
       - demo-net
