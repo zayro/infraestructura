@@ -84,6 +84,8 @@ services:
       DEPLOYMENT_ENVIRONMENT: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-demo}:${POSTGRES_PASSWORD:-demo}@postgres:5432/${POSTGRES_DB:-demo}
       REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-demo}:${RABBITMQ_PASSWORD:-demo}@rabbitmq:5672/
+      RABBITMQ_QUEUE: test.events
     expose:
       - "8083"
     depends_on:
@@ -92,6 +94,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/health/live', timeout=2)"]
@@ -121,6 +125,8 @@ services:
       DEPLOYMENT_ENVIRONMENT: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-demo}:${POSTGRES_PASSWORD:-demo}@postgres:5432/${POSTGRES_DB:-demo}
       REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-demo}:${RABBITMQ_PASSWORD:-demo}@rabbitmq:5672/
+      RABBITMQ_QUEUE: test.events
     expose:
       - "8084"
     depends_on:
@@ -129,6 +135,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8084/health/live"]
@@ -165,6 +173,26 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+    networks:
+      - demo-net
+
+  rabbitmq:
+    image: rabbitmq:4.1.5-management-alpine
+    container_name: demo-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-demo}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-demo}
+    expose:
+      - "5672"
+      - "15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - demo-net
 
@@ -278,4 +306,5 @@ volumes:
   tempo-data:
   grafana-data:
   postgres-data:
+  rabbitmq-data:
   redis-data:

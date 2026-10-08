@@ -15,6 +15,7 @@
     "@opentelemetry/resources": "^2.0.0",
     "@opentelemetry/sdk-logs": "^0.223.0",
     "@opentelemetry/sdk-node": "^0.223.0",
+    "amqplib": "^0.10.8",
     "fastify": "^5.12.5",
     "pg": "^8.23.1",
     "prom-client": "^15.1.3",

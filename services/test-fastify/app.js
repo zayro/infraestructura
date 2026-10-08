@@ -1,5 +1,6 @@
-const { trace } = require("@opentelemetry/api");
+const { context, propagation, SpanKind, trace } = require("@opentelemetry/api");
 const { logs, SeverityNumber } = require("@opentelemetry/api-logs");
+const amqp = require("amqplib");
 const client = require("prom-client");
 const { Pool } = require("pg");
 const { createClient } = require("redis");
@@ -9,6 +10,8 @@ const SERVICE_NAME = process.env.SERVICE_NAME || "test-fastify-service";
 const PORT = Number(process.env.SERVICE_PORT || 8084);
 const DATABASE_URL = process.env.DATABASE_URL || "postgresql://demo:demo@postgres:5432/demo";
 const REDIS_URL = process.env.REDIS_URL || "redis://redis:6379/0";
+const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://demo:demo@rabbitmq:5672/";
+const RABBITMQ_QUEUE = process.env.RABBITMQ_QUEUE || "test.events";
 const CACHE_KEY = "node:items";
 const CACHE_TTL_SECONDS = 30;
 
@@ -16,6 +19,9 @@ const pool = new Pool({ connectionString: DATABASE_URL });
 pool.on("error", (err) => console.error(JSON.stringify({ event: "pg_pool_error", error: err.message })));
 const cache = createClient({ url: REDIS_URL });
 cache.on("error", (err) => console.error(JSON.stringify({ event: "redis_error", error: err.message })));
+let rabbitConnection;
+let rabbitChannel;
+let stopping = false;
 
 const tracer = trace.getTracer(SERVICE_NAME);
 const otelLogger = logs.getLogger(SERVICE_NAME);
@@ -158,6 +164,13 @@ fastify.get("/api/node/items", async () => {
   }
 });
 
+fastify.get("/api/node/events", async () => {
+  const { rows } = await pool.query(
+    "SELECT event_id, name, received_at FROM node_events ORDER BY received_at DESC LIMIT 20"
+  );
+  return { ok: true, events: rows };
+});
+
 fastify.get("/metrics", async (_request, reply) => {
   reply.header("Content-Type", client.register.contentType);
   return client.register.metrics();
@@ -166,14 +179,105 @@ fastify.get("/metrics", async (_request, reply) => {
 fastify.get("/health/live", async () => ({ status: "UP", service: SERVICE_NAME }));
 fastify.get("/health/ready", async () => ({ status: "UP", service: SERVICE_NAME }));
 
+async function consumeEvents() {
+  while (!stopping) {
+    try {
+      rabbitConnection = await amqp.connect(RABBITMQ_URL);
+      rabbitConnection.on("error", (err) =>
+        console.error(JSON.stringify({ event: "rabbitmq_error", error: err.message }))
+      );
+      rabbitChannel = await rabbitConnection.createChannel();
+      await rabbitChannel.assertQueue(RABBITMQ_QUEUE, { durable: true });
+      await rabbitChannel.prefetch(10);
+      await rabbitChannel.consume(RABBITMQ_QUEUE, async (message) => {
+        if (!message) return;
+
+        let event;
+        try {
+          event = JSON.parse(message.content.toString());
+          if (
+            typeof event.event_id !== "string" ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(event.event_id) ||
+            typeof event.name !== "string" ||
+            event.name.length < 1 ||
+            event.name.length > 100
+          ) {
+            throw new Error("Invalid event payload");
+          }
+        } catch (err) {
+          console.error(JSON.stringify({ event: "rabbitmq_invalid_message", error: err.message }));
+          rabbitChannel.nack(message, false, false);
+          return;
+        }
+
+        const parentContext = propagation.extract(context.active(), message.properties.headers || {});
+        try {
+          await tracer.startActiveSpan(
+            "node.consume.test_event",
+            {
+              kind: SpanKind.CONSUMER,
+              attributes: {
+                "messaging.system": "rabbitmq",
+                "messaging.destination.name": RABBITMQ_QUEUE,
+                "messaging.operation.type": "process",
+              },
+            },
+            parentContext,
+            async (span) => {
+              try {
+                await pool.query(
+                  "INSERT INTO node_events (event_id, name) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING",
+                  [event.event_id, event.name]
+                );
+                structuredLog("event_consumed", { event_id: event.event_id });
+              } finally {
+                span.end();
+              }
+            }
+          );
+          rabbitChannel.ack(message);
+        } catch (err) {
+          console.error(JSON.stringify({ event: "rabbitmq_consume_failed", error: err.message }));
+          rabbitChannel.nack(message, false, true);
+        }
+      });
+      await new Promise((resolve) => rabbitConnection.once("close", resolve));
+    } catch (err) {
+      if (!stopping) {
+        console.error(JSON.stringify({ event: "rabbitmq_connection_failed", error: err.message }));
+        await sleep(5000);
+      }
+    } finally {
+      rabbitChannel = undefined;
+      rabbitConnection = undefined;
+    }
+  }
+}
+
 async function main() {
   await pool.query(
     "CREATE TABLE IF NOT EXISTS node_items (" +
       "id SERIAL PRIMARY KEY, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
   );
+  await pool.query(
+    "CREATE TABLE IF NOT EXISTS node_events (" +
+      "event_id UUID PRIMARY KEY, name TEXT NOT NULL, received_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+  );
   await cache.connect();
+  void consumeEvents();
   await fastify.listen({ host: "0.0.0.0", port: PORT });
 }
+
+async function shutdown() {
+  stopping = true;
+  if (rabbitConnection) await rabbitConnection.close();
+  await fastify.close();
+  await cache.quit();
+  await pool.end();
+}
+
+process.once("SIGTERM", () => shutdown().finally(() => process.exit(0)));
+process.once("SIGINT", () => shutdown().finally(() => process.exit(0)));
 
 main().catch((err) => {
   console.error(err);

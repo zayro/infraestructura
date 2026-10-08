@@ -2,12 +2,15 @@ import asyncio
 import json
 import os
 import time
+import uuid
 from contextlib import asynccontextmanager
 
+import aio_pika
 import redis.asyncio as redis
 import uvicorn
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse, Response
+from opentelemetry import propagate
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
@@ -20,10 +23,21 @@ SERVICE_NAME = os.getenv("SERVICE_NAME", "test-fastapi-service")
 PORT = int(os.getenv("SERVICE_PORT", "8083"))
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://demo:demo@postgres:5432/demo")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://demo:demo@rabbitmq:5672/")
+RABBITMQ_QUEUE = os.getenv("RABBITMQ_QUEUE", "test.events")
 CACHE_KEY = "test:items"
 CACHE_TTL_SECONDS = 30
 
 tracer, logger = setup_telemetry(SERVICE_NAME)
+
+
+async def connect_rabbitmq():
+    while True:
+        try:
+            return await aio_pika.connect_robust(RABBITMQ_URL)
+        except aio_pika.exceptions.AMQPConnectionError as exc:
+            structured_log(logger, "rabbitmq_connect_retry", error=str(exc))
+            await asyncio.sleep(2)
 
 
 @asynccontextmanager
@@ -38,7 +52,13 @@ async def lifespan(app: FastAPI):
             "created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
         )
     app.state.redis = redis.from_url(REDIS_URL, decode_responses=True)
+    app.state.rabbit_connection = await connect_rabbitmq()
+    app.state.rabbit_channel = await app.state.rabbit_connection.channel(
+        publisher_confirms=True
+    )
+    await app.state.rabbit_channel.declare_queue(RABBITMQ_QUEUE, durable=True)
     yield
+    await app.state.rabbit_connection.close()
     await app.state.redis.aclose()
     await app.state.pool.close()
 
@@ -106,6 +126,10 @@ class ItemIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
 
 
+class EventIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
 def record(route: str, status: int, started: float):
     REQUESTS.labels(SERVICE_NAME, route, str(status)).inc()
     DURATION.labels(SERVICE_NAME, route).observe(time.perf_counter() - started)
@@ -131,6 +155,38 @@ async def create_item(item: ItemIn):
         return {"id": row[0], "name": row[1], "created_at": row[2].isoformat()}
     except Exception:
         record("/api/test/items", 500, started)
+        raise
+
+
+@app.post("/api/test/events", status_code=202)
+async def publish_event(event: EventIn):
+    started = time.perf_counter()
+    route = "/api/test/events"
+    try:
+        event_id = str(uuid.uuid4())
+        payload = json.dumps(
+            {"event_id": event_id, "name": event.name},
+            separators=(",", ":"),
+        ).encode()
+        with tracer.start_as_current_span("test.rabbitmq_publish") as span:
+            span.set_attribute("messaging.system", "rabbitmq")
+            span.set_attribute("messaging.destination.name", RABBITMQ_QUEUE)
+            headers = {}
+            propagate.inject(headers)
+            await app.state.rabbit_channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=payload,
+                    headers=headers,
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                    content_type="application/json",
+                ),
+                routing_key=RABBITMQ_QUEUE,
+            )
+        structured_log(logger, "event_published", event_id=event_id)
+        record(route, 202, started)
+        return {"accepted": True, "event_id": event_id}
+    except Exception:
+        record(route, 500, started)
         raise
 
 

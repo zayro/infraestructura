@@ -13,6 +13,12 @@ CREATE TABLE IF NOT EXISTS node_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS node_events (
+    event_id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 INSERT INTO test_items (name) VALUES
     ('seed-fastapi-1'),
     ('seed-fastapi-2'),

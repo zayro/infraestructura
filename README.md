@@ -11,7 +11,7 @@ Entorno de desarrollo autocontenido para validar:
 - Tempo para trazas;
 - Grafana para visualizacion.
 
-> Este demo es deliberadamente pequeno. No incluye RabbitMQ, Kafka, Kubernetes, Istio, Oracle ni autenticacion porque pertenecen a etapas posteriores o requieren una necesidad funcional concreta.
+> Este demo es deliberadamente pequeno. RabbitMQ se usa solamente para demostrar comunicacion asincrona entre los servicios de prueba; no incluye Kafka, Kubernetes, Istio, Oracle ni autenticacion.
 
 ## Arquitectura
 
@@ -25,6 +25,10 @@ Traefik  (rate limit + limite de concurrencia + cabeceras de seguridad)
   |-- /api/test --> test-fastapi-service :8083 (solo red Docker)
   |-- /api/node --> test-fastify-service :8084 (solo red Docker)
   `-- /         --> student-service        :8081 (solo red Docker)
+
+test-fastapi-service
+  `-- AMQP: cola durable test.events --> RabbitMQ --> test-fastify-service
+                                               `--> persiste eventos en PostgreSQL
 
 Traefik
   `-- /metrics :8082 -------------> Prometheus
@@ -42,6 +46,7 @@ Prometheus + Loki + Tempo ----------> Grafana
 
 - `traefik`: API gateway. Es el unico punto HTTP publicado para las APIs, decide a que servicio enrutar y aplica rate limit, limite de concurrencia y cabeceras de seguridad.
 - `student-service`, `test-fastapi-service` y `test-fastify-service`: microservicios (ver tabla).
+- `rabbitmq`: broker AMQP interno para el ejemplo asincrono; los servicios conservan sus rutas HTTP y RabbitMQ no publica puertos al host.
 
 El antiguo `gateway-service` se elimino porque Traefik ya cumple ese papel.
 
@@ -54,12 +59,15 @@ El antiguo `gateway-service` se elimino porque Traefik ya cumple ese papel.
 | `test-fastify-service` | Node.js 22 / Fastify 5 | 8084 | `/api/node` | `/api/node` |
 | `postgres` | PostgreSQL 17 | 5432 | no expuesto | volumen `postgres-data` |
 | `redis` | Redis 7 (AOF) | 6379 | no expuesto | volumen `redis-data` |
+| `rabbitmq` | RabbitMQ 4.1.5 | 5672 / 15672 | no expuesto | volumen `rabbitmq-data` |
 
 Todos exponen tambien `/metrics`, `/health/live` y `/health/ready`, envian trazas y logs por OTLP al collector y publican las metricas `demo_http_requests_total` y `demo_http_request_duration_seconds`.
 
 Los servicios de prueba aceptan los parametros `delay_ms` (0-2000, latencia simulada) y `fail=1` (error 500 simulado). Las rutas `/api/test` y `/api/node` son mas especificas que `/`, por lo que Traefik las prioriza.
 
 Los servicios de prueba tambien exponen un ejemplo CRUD con PostgreSQL y cache Redis (patron cache-aside, TTL 30 s): `/api/test/items` (FastAPI, tabla `test_items`) y `/api/node/items` (Fastify, tabla `node_items`). `postgres` y `redis` solo son accesibles desde la red Docker; sus datos persisten en los volumenes `postgres-data` y `redis-data`. Las credenciales se configuran con `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB` (ver `.env.example`; evita caracteres especiales en la contrasena porque se usa dentro de una URL).
+
+RabbitMQ conecta los servicios de forma asincrona: FastAPI publica eventos persistentes en la cola durable `test.events`; Fastify los consume con confirmacion manual, los almacena idempotentemente en `node_events` y permite consultarlos por `/api/node/events`. El `traceparent` se propaga en los headers del mensaje para correlacionar publicacion y consumo. RabbitMQ no publica puertos al host y persiste en `rabbitmq-data`; configura `RABBITMQ_USER` y `RABBITMQ_PASSWORD` en `.env`.
 
 Codigo en `services/student`, `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene su propio `Dockerfile` y su copia de la configuracion de telemetria.
 
@@ -158,7 +166,18 @@ curl http://localhost:8000/api/node/items
 
 El `POST` devuelve 201 e invalida la cache; el `GET` indica en `source` si el dato vino de `db` o `cache`. Cada operacion genera spans (`*.db_insert`, `*.cache_lookup`, `*.db_select`) visibles en Tempo. Los datos sobreviven a `docker compose down` (sin `-v`).
 
-Al crear el volumen por primera vez, Postgres ejecuta `postgres/init/script.sql` (montado en `/docker-entrypoint-initdb.d`): crea las tablas `test_items` y `node_items` y carga 3 filas semilla en cada una. Si el volumen ya existe el script no se vuelve a ejecutar; para recargarlo hay que recrear el volumen (`docker compose down -v`, destructivo: borra tambien los datos de Redis y Grafana).
+### 7. Comunicacion asincrona FastAPI → RabbitMQ → Fastify
+
+```bash
+curl -i -X POST http://localhost:8000/api/test/events \
+  -H "Content-Type: application/json" \
+  -d '{"name":"demo-event"}'
+curl http://localhost:8000/api/node/events
+```
+
+La primera ruta responde `202` con un `event_id`; la segunda muestra el evento cuando Fastify lo procesa. El consumidor confirma el mensaje despues de guardarlo en PostgreSQL; un fallo de base de datos lo reencola y los reintentos no duplican eventos. Revisa `docker compose logs -f rabbitmq test-fastapi-service test-fastify-service` para seguir el flujo.
+
+Al crear el volumen por primera vez, Postgres ejecuta `postgres/init/script.sql` (montado en `/docker-entrypoint-initdb.d`): crea las tablas `test_items`, `node_items` y `node_events`, y carga 3 filas semilla en cada una de las tablas de items. Si el volumen ya existe el script no se vuelve a ejecutar; para recargarlo hay que recrear el volumen (`docker compose down -v`, destructivo: borra tambien los datos de Redis y Grafana).
 
 Consultar directamente:
 
@@ -167,7 +186,7 @@ docker exec demo-postgres psql -U demo -d demo -c "select * from test_items"
 docker exec demo-redis redis-cli keys "*"
 ```
 
-### 7. Rate limit
+### 8. Rate limit
 
 ```bash
 # 80 peticiones en paralelo (PowerShell 7)

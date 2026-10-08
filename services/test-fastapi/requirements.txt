@@ -7,3 +7,4 @@ opentelemetry-exporter-otlp-proto-http
 opentelemetry-instrumentation-fastapi
 psycopg[binary,pool]
 redis
+aio-pika
