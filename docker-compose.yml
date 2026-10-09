@@ -247,6 +247,23 @@ services:
         condition: service_healthy
       test-fastify-service:
         condition: service_healthy
+      cadvisor:
+        condition: service_started
+    networks:
+      - demo-net
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.6
+    container_name: demo-cadvisor
+    command:
+      - --docker_only=true
+    expose:
+      - "8080"
+    volumes:
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - demo-net
 

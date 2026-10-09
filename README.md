@@ -287,7 +287,7 @@ Tambien se carga el dashboard:
 Demo Etapa 1 - Observabilidad
 ```
 
-El dashboard contiene ahora una grafica adicional con solicitudes observadas por Traefik.
+Prometheus recoge tambien metricas de contenedores desde cAdvisor. El dashboard incluye graficas de solicitudes observadas por Traefik y de CPU y memoria por contenedor. cAdvisor solo se expone en la red interna de Docker; como requiere montar el socket de Docker, debe usarse solo en entornos de confianza.
 
 Para revisar trazas:
 
@@ -397,6 +397,7 @@ Servicios (Flask / FastAPI / Fastify)
   |-- OTLP (trazas + logs) --> Collector --> Tempo -------+--> Grafana
   |                                     `--> Loki -------/
 Traefik -- /metrics :8082 ---------------> Prometheus
+cAdvisor -- /metrics :8080 --------------> Prometheus
 ```
 
 - **Metricas: detectan que algo va mal.** Un aumento de `demo_http_requests_total{status=~"5.."}` o del percentil 95 de latencia indica que existe un problema, pero no su causa.
