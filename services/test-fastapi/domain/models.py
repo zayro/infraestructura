@@ -13,3 +13,5 @@ class Item:
 class Event:
     event_id: str
     name: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None

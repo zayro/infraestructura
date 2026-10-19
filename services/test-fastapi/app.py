@@ -17,11 +17,16 @@ from api.router import router
 from app_metrics import DURATION, REQUESTS
 from application.use_cases import (
     CreateItem,
+    DeleteEvent,
+    GetEvent,
+    ListEvents,
     ListItems,
     PublishEvent,
     SimulateTest,
+    UpdateEvent,
 )
 from infrastructure.adapters import (
+    PostgresEventsRepository,
     PostgresItemsRepository,
     RabbitMQEventPublisher,
     RedisItemsCache,
@@ -42,7 +47,10 @@ class ServiceContainer:
     create_item: CreateItem
     list_items: ListItems
     publish_event: PublishEvent
-
+    list_events: ListEvents
+    get_event: GetEvent
+    update_event: UpdateEvent
+    delete_event: DeleteEvent
 
 async def connect_rabbitmq(url: str, logger: logging.Logger) -> aio_pika.RobustConnection:
     while True:
@@ -77,6 +85,13 @@ def create_app() -> FastAPI:
                     "name TEXT NOT NULL, "
                     "created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
                 )
+                await conn.execute(
+                    "CREATE TABLE IF NOT EXISTS test_events ("
+                    "event_id UUID PRIMARY KEY, "
+                    "name TEXT NOT NULL, "
+                    "created_at TIMESTAMPTZ NOT NULL DEFAULT now(), "
+                    "updated_at TIMESTAMPTZ)"
+                )
 
             redis_client = redis.from_url(settings["redis_url"], decode_responses=True)
             stack.push_async_callback(redis_client.aclose)
@@ -87,6 +102,7 @@ def create_app() -> FastAPI:
             await rabbit_channel.declare_queue(settings["rabbitmq_queue"], durable=True)
 
             repository = PostgresItemsRepository(pool, tracer)
+            events_repository = PostgresEventsRepository(pool, tracer)
             cache = RedisItemsCache(redis_client, tracer)
             publisher = RabbitMQEventPublisher(
                 rabbit_channel,
@@ -97,7 +113,11 @@ def create_app() -> FastAPI:
                 simulate_test=SimulateTest(),
                 create_item=CreateItem(repository, cache),
                 list_items=ListItems(repository, cache),
-                publish_event=PublishEvent(publisher),
+                publish_event=PublishEvent(publisher, events_repository),
+                list_events=ListEvents(events_repository),
+                get_event=GetEvent(events_repository),
+                update_event=UpdateEvent(events_repository),
+                delete_event=DeleteEvent(events_repository),
             )
             app.state.pool = pool
             app.state.redis = redis_client

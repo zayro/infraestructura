@@ -2,7 +2,13 @@ import asyncio
 import uuid
 from dataclasses import dataclass
 
-from application.ports import EventPublisher, ItemsCache, ItemsRepository
+from application.ports import (
+    EventPublisher,
+    EventsRepository,
+    ItemsCache,
+    ItemsRepository,
+)
+from domain.errors import EventNotFound
 from domain.models import Event, Item
 
 CACHE_TTL_SECONDS = 30
@@ -47,10 +53,57 @@ class ListItems:
 
 
 class PublishEvent:
-    def __init__(self, publisher: EventPublisher):
+    def __init__(self, publisher: EventPublisher, repository: EventsRepository):
         self._publisher = publisher
+        self._repository = repository
 
     async def execute(self, name: str) -> str:
-        event = Event(event_id=str(uuid.uuid4()), name=name)
-        await self._publisher.publish(event)
+        event = await self._repository.create(
+            Event(event_id=str(uuid.uuid4()), name=name)
+        )
+        try:
+            await self._publisher.publish(event)
+        except Exception:
+            # Evita registros de eventos que nunca llegaron al broker
+            await self._repository.delete(event.event_id)
+            raise
         return event.event_id
+
+
+class ListEvents:
+    def __init__(self, repository: EventsRepository):
+        self._repository = repository
+
+    async def execute(self) -> list[Event]:
+        return await self._repository.list_recent(ITEMS_LIMIT)
+
+
+class GetEvent:
+    def __init__(self, repository: EventsRepository):
+        self._repository = repository
+
+    async def execute(self, event_id: str) -> Event:
+        event = await self._repository.get(event_id)
+        if event is None:
+            raise EventNotFound(event_id)
+        return event
+
+
+class UpdateEvent:
+    def __init__(self, repository: EventsRepository):
+        self._repository = repository
+
+    async def execute(self, event_id: str, name: str) -> Event:
+        event = await self._repository.update(event_id, name)
+        if event is None:
+            raise EventNotFound(event_id)
+        return event
+
+
+class DeleteEvent:
+    def __init__(self, repository: EventsRepository):
+        self._repository = repository
+
+    async def execute(self, event_id: str) -> None:
+        if not await self._repository.delete(event_id):
+            raise EventNotFound(event_id)

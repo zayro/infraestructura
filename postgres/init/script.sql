@@ -7,6 +7,13 @@ CREATE TABLE IF NOT EXISTS test_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS test_events (
+    event_id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ
+);
+
 CREATE TABLE IF NOT EXISTS node_items (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,

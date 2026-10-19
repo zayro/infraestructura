@@ -1,14 +1,33 @@
 import time
+from uuid import UUID
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 
-from api.schemas import EventIn, ItemIn
+from api.schemas import EventIn, EventUpdate, ItemIn
 from app_metrics import record_request
+from domain.errors import EventNotFound
+from domain.models import Event
 from telemetry import structured_log
 
 router = APIRouter()
+
+
+def serialize_event(event: Event) -> dict:
+    return {
+        "event_id": event.event_id,
+        "name": event.name,
+        "created_at": event.created_at.isoformat() if event.created_at else None,
+        "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+    }
+
+
+def event_not_found(event_id: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=404,
+        content={"ok": False, "error": f"Evento {event_id} no encontrado."},
+    )
 
 
 def current_trace_id() -> str | None:
@@ -87,6 +106,75 @@ async def publish_event(event: EventIn, request: Request):
         raise
     finally:
         record_request(request.app.title, "/api/test/events", status, started)
+
+
+@router.get("/api/test/events")
+async def list_events(request: Request):
+    started = time.perf_counter()
+    status = 200
+    try:
+        events = await request.app.state.container.list_events.execute()
+        return {"ok": True, "events": [serialize_event(event) for event in events]}
+    except Exception:
+        status = 500
+        raise
+    finally:
+        record_request(request.app.title, "/api/test/events", status, started)
+
+
+@router.get("/api/test/events/{event_id}")
+async def get_event(event_id: UUID, request: Request):
+    started = time.perf_counter()
+    status = 200
+    try:
+        event = await request.app.state.container.get_event.execute(str(event_id))
+        return {"ok": True, "event": serialize_event(event)}
+    except EventNotFound:
+        status = 404
+        return event_not_found(str(event_id))
+    except Exception:
+        status = 500
+        raise
+    finally:
+        record_request(request.app.title, "/api/test/events/{event_id}", status, started)
+
+
+@router.put("/api/test/events/{event_id}")
+async def update_event(event_id: UUID, body: EventUpdate, request: Request):
+    started = time.perf_counter()
+    status = 200
+    try:
+        event = await request.app.state.container.update_event.execute(
+            str(event_id), body.name
+        )
+        structured_log(request.app.state.logger, "event_updated", event_id=str(event_id))
+        return {"ok": True, "event": serialize_event(event)}
+    except EventNotFound:
+        status = 404
+        return event_not_found(str(event_id))
+    except Exception:
+        status = 500
+        raise
+    finally:
+        record_request(request.app.title, "/api/test/events/{event_id}", status, started)
+
+
+@router.delete("/api/test/events/{event_id}", status_code=204)
+async def delete_event(event_id: UUID, request: Request):
+    started = time.perf_counter()
+    status = 204
+    try:
+        await request.app.state.container.delete_event.execute(str(event_id))
+        structured_log(request.app.state.logger, "event_deleted", event_id=str(event_id))
+        return Response(status_code=204)
+    except EventNotFound:
+        status = 404
+        return event_not_found(str(event_id))
+    except Exception:
+        status = 500
+        raise
+    finally:
+        record_request(request.app.title, "/api/test/events/{event_id}", status, started)
 
 
 @router.get("/api/test/items")

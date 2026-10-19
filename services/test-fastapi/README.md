@@ -35,14 +35,22 @@ Las rutas de negocio conservan sus contratos:
   invalida el cache y responde `201`.
 - `GET /api/test/items`: consulta los ultimos 20 elementos usando cache-aside
   en Redis, con TTL de 30 segundos.
-- `POST /api/test/events` con `{"name":"demo"}`: publica un mensaje persistente
-  en la cola RabbitMQ configurada y responde `202` con `event_id`.
+- `POST /api/test/events` con `{"name":"demo"}`: registra el evento en la tabla
+  `test_events` de PostgreSQL, lo publica en la cola RabbitMQ configurada y
+  responde `202` con `event_id`. Si la publicacion falla, el registro se elimina.
+- `GET /api/test/events`: lista los 20 eventos mas recientes.
+- `GET /api/test/events/{event_id}`: obtiene un evento (`404` si no existe;
+  `422` si el id no es un UUID).
+- `PUT /api/test/events/{event_id}` con `{"name":"nuevo"}`: actualiza el nombre
+  y `updated_at`. No vuelve a publicar el mensaje.
+- `DELETE /api/test/events/{event_id}`: elimina el registro y responde `204`.
+  Los mensajes ya publicados en RabbitMQ no se retiran.
 - `GET /health/live`: comprueba que el proceso responde.
 - `GET /health/ready`: verifica PostgreSQL, Redis y RabbitMQ; responde `503`
   si el servicio aun no termino de iniciar o alguna dependencia no esta lista.
 - `GET /metrics`: expone las metricas Prometheus del servicio.
 
-La publicacion conserva el formato JSON del evento y propaga `traceparent` en
+La publicacion conserva el formato JSON del mensaje (`event_id`, `name`) y propaga `traceparent` en
 los headers del mensaje para mantener la correlacion con el consumidor
 Fastify.
 

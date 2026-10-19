@@ -55,7 +55,7 @@ El antiguo `gateway-service` se elimino porque Traefik ya cumple ese papel.
 | Servicio | Tecnologia | Puerto interno | Ruta en Traefik | Endpoints |
 |---|---|---|---|---|
 | `student-service` | Python 3.12 / Flask | 8081 | `/` (catch-all) | `/`, `/api/demo`, `/students/<id>` |
-| `test-fastapi-service` | Python 3.12 / FastAPI + Uvicorn | 8083 | `/api/test` | `/api/test` |
+| `test-fastapi-service` | Python 3.12 / FastAPI + Uvicorn | 8083 | `/api/test` | `/api/test`, `/api/test/items`, `/api/test/events` (CRUD) |
 | `test-fastify-service` | Node.js 22 / Fastify 5 | 8084 | `/api/node` | `/api/node` |
 | `postgres` | PostgreSQL 17 | 5432 | no expuesto | volumen `postgres-data` |
 | `redis` | Redis 7 (AOF) | 6379 | no expuesto | volumen `redis-data` |

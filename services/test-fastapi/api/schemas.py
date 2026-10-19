@@ -7,3 +7,7 @@ class ItemIn(BaseModel):
 
 class EventIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+
+
+class EventUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)

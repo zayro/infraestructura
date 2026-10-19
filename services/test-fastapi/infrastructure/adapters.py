@@ -41,6 +41,70 @@ class PostgresItemsRepository:
         return [Item(id=row[0], name=row[1], created_at=row[2]) for row in rows]
 
 
+class PostgresEventsRepository:
+    _COLUMNS = "event_id, name, created_at, updated_at"
+
+    def __init__(self, pool: AsyncConnectionPool, tracer: trace.Tracer):
+        self._pool = pool
+        self._tracer = tracer
+
+    @staticmethod
+    def _to_event(row) -> Event:
+        return Event(
+            event_id=str(row[0]), name=row[1], created_at=row[2], updated_at=row[3]
+        )
+
+    async def _fetch(self, span_name: str, query: str, params=()):
+        with self._tracer.start_as_current_span(span_name) as span:
+            span.set_attribute("db.system", "postgresql")
+            async with self._pool.connection() as conn:
+                cursor = await conn.execute(query, params)
+                return await cursor.fetchall()
+
+    async def create(self, event: Event) -> Event:
+        rows = await self._fetch(
+            "test.db_insert_event",
+            "INSERT INTO test_events (event_id, name) VALUES (%s, %s) "
+            f"RETURNING {self._COLUMNS}",
+            (event.event_id, event.name),
+        )
+        return self._to_event(rows[0])
+
+    async def get(self, event_id: str) -> Event | None:
+        rows = await self._fetch(
+            "test.db_select_event",
+            f"SELECT {self._COLUMNS} FROM test_events WHERE event_id = %s",
+            (event_id,),
+        )
+        return self._to_event(rows[0]) if rows else None
+
+    async def list_recent(self, limit: int) -> list[Event]:
+        rows = await self._fetch(
+            "test.db_select_events",
+            f"SELECT {self._COLUMNS} FROM test_events "
+            "ORDER BY created_at DESC LIMIT %s",
+            (limit,),
+        )
+        return [self._to_event(row) for row in rows]
+
+    async def update(self, event_id: str, name: str) -> Event | None:
+        rows = await self._fetch(
+            "test.db_update_event",
+            "UPDATE test_events SET name = %s, updated_at = now() "
+            f"WHERE event_id = %s RETURNING {self._COLUMNS}",
+            (name, event_id),
+        )
+        return self._to_event(rows[0]) if rows else None
+
+    async def delete(self, event_id: str) -> bool:
+        rows = await self._fetch(
+            "test.db_delete_event",
+            "DELETE FROM test_events WHERE event_id = %s RETURNING event_id",
+            (event_id,),
+        )
+        return bool(rows)
+
+
 class RedisItemsCache:
     def __init__(self, client: Redis, tracer: trace.Tracer):
         self._client = client
