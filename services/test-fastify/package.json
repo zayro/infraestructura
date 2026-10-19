@@ -4,7 +4,8 @@
   "private": true,
   "main": "app.js",
   "scripts": {
-    "start": "node --require ./telemetry.js app.js"
+    "start": "node --require ./telemetry.js app.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

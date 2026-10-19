@@ -56,7 +56,7 @@ El antiguo `gateway-service` se elimino porque Traefik ya cumple ese papel.
 |---|---|---|---|---|
 | `student-service` | Python 3.12 / Flask | 8081 | `/` (catch-all) | `/`, `/api/demo`, `/students/<id>` |
 | `test-fastapi-service` | Python 3.12 / FastAPI + Uvicorn | 8083 | `/api/test` | `/api/test`, `/api/test/items`, `/api/test/events` (CRUD) |
-| `test-fastify-service` | Node.js 22 / Fastify 5 | 8084 | `/api/node` | `/api/node` |
+| `test-fastify-service` | Node.js 22 / Fastify 5 | 8084 | `/api/node` | `/api/node`, `/api/node/items`, `/api/node/events` (CRUD) |
 | `postgres` | PostgreSQL 17 | 5432 | no expuesto | volumen `postgres-data` |
 | `redis` | Redis 7 (AOF) | 6379 | no expuesto | volumen `redis-data` |
 | `rabbitmq` | RabbitMQ 4.1.5 | 5672 / 15672 | no expuesto | volumen `rabbitmq-data` |
@@ -67,7 +67,7 @@ Los servicios de prueba aceptan los parametros `delay_ms` (0-2000, latencia simu
 
 Los servicios de prueba tambien exponen un ejemplo CRUD con PostgreSQL y cache Redis (patron cache-aside, TTL 30 s): `/api/test/items` (FastAPI, tabla `test_items`) y `/api/node/items` (Fastify, tabla `node_items`). `postgres` y `redis` solo son accesibles desde la red Docker; sus datos persisten en los volumenes `postgres-data` y `redis-data`. Las credenciales se configuran con `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB` (ver `.env.example`; evita caracteres especiales en la contrasena porque se usa dentro de una URL).
 
-RabbitMQ conecta los servicios de forma asincrona: FastAPI publica eventos persistentes en la cola durable `test.events`; Fastify los consume con confirmacion manual, los almacena idempotentemente en `node_events` y permite consultarlos por `/api/node/events`. El `traceparent` se propaga en los headers del mensaje para correlacionar publicacion y consumo. RabbitMQ no publica puertos al host y persiste en `rabbitmq-data`; configura `RABBITMQ_USER` y `RABBITMQ_PASSWORD` en `.env`.
+RabbitMQ conecta los servicios de forma asincrona: FastAPI publica eventos persistentes en la cola durable `test.events`; Fastify los consume con confirmacion manual, los almacena idempotentemente en `node_events` y permite gestionarlos por `/api/node/events` (CRUD: `POST` crea un registro directo en la tabla sin publicarlo en RabbitMQ, `GET` lista, `GET/PUT/DELETE /api/node/events/{event_id}` consultan, actualizan o eliminan; `404` si no existe y `400` si el id no es UUID o el nombre es invalido). El `traceparent` se propaga en los headers del mensaje para correlacionar publicacion y consumo. RabbitMQ no publica puertos al host y persiste en `rabbitmq-data`; configura `RABBITMQ_USER` y `RABBITMQ_PASSWORD` en `.env`.
 
 Codigo en `services/student`, `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene su propio `Dockerfile` y su copia de la configuracion de telemetria.
 

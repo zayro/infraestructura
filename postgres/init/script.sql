@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS node_items (
 CREATE TABLE IF NOT EXISTS node_events (
     event_id UUID PRIMARY KEY,
     name TEXT NOT NULL,
-    received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ
 );
 
 INSERT INTO test_items (name) VALUES
