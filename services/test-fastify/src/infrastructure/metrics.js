@@ -1,6 +1,6 @@
-const client = require("prom-client");
+import client from "prom-client";
 
-function createMetrics(serviceName) {
+export function createMetrics(serviceName) {
   const requests = new client.Counter({
     name: "demo_http_requests_total",
     help: "Total de solicitudes HTTP del demo",
@@ -24,5 +24,3 @@ function createMetrics(serviceName) {
     render: () => client.register.metrics(),
   };
 }
-
-module.exports = { createMetrics };

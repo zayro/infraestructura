@@ -1,8 +1,8 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { createUseCases } = require("../src/application/use-cases");
-const { parseEventMessage } = require("../src/application/event-message");
-const { EventNotFoundError } = require("../src/domain/errors");
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createUseCases } from "../src/application/use-cases.js";
+import { parseEventMessage } from "../src/application/event-message.js";
+import { EventNotFoundError } from "../src/domain/errors.js";
 
 function fakes() {
   const events = new Map();

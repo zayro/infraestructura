@@ -1,4 +1,4 @@
-function loadConfig(env = process.env) {
+export function loadConfig(env = process.env) {
   return {
     serviceName: env.SERVICE_NAME || "test-fastify-service",
     port: Number(env.SERVICE_PORT || 8084),
@@ -10,5 +10,3 @@ function loadConfig(env = process.env) {
     itemsCacheKey: "node:items:v2",
   };
 }
-
-module.exports = { loadConfig };

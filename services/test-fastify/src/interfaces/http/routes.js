@@ -1,4 +1,4 @@
-const { EventNotFoundError } = require("../../domain/errors");
+import { EventNotFoundError } from "../../domain/errors.js";
 
 const MAX_DELAY_MS = 2000;
 const DEFAULT_DELAY_MS = 100;
@@ -23,7 +23,7 @@ const serializeEvent = (event) => ({
   updated_at: event.updatedAt,
 });
 
-function toHttpStatus(err) {
+export function toHttpStatus(err) {
   if (err instanceof EventNotFoundError) return 404;
   return err.statusCode || 500;
 }
@@ -33,7 +33,7 @@ function parseDelay(value) {
   return Number.isNaN(parsed) ? DEFAULT_DELAY_MS : Math.max(0, Math.min(parsed, MAX_DELAY_MS));
 }
 
-function registerRoutes(app, { serviceName, useCases, metrics, tracing, log, checkReadiness }) {
+export function registerRoutes(app, { serviceName, useCases, metrics, tracing, log, checkReadiness }) {
   app.setErrorHandler((err, _request, reply) => {
     if (err instanceof EventNotFoundError) {
       return reply.code(404).send({ ok: false, error: err.message });
@@ -167,5 +167,3 @@ function registerRoutes(app, { serviceName, useCases, metrics, tracing, log, che
     }
   });
 }
-
-module.exports = { registerRoutes, toHttpStatus };

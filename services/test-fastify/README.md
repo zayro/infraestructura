@@ -8,7 +8,7 @@ a traves de Traefik (`/api/node`); dentro de Docker escucha en el puerto `8084`.
 
 ```
 app.js                      composicion: unico lugar que conoce las implementaciones
-telemetry.js                SDK OpenTelemetry (se carga con --require)
+telemetry.js                SDK OpenTelemetry (ES modules; se carga con --import)
 src/
   config.js                 variables de entorno
   domain/                   errores de negocio (EventNotFoundError)

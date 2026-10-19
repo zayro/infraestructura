@@ -1,10 +1,10 @@
-const { EventNotFoundError } = require("../domain/errors");
+import { EventNotFoundError } from "../domain/errors.js";
 
-const CACHE_TTL_SECONDS = 30;
-const LIST_LIMIT = 20;
+export const CACHE_TTL_SECONDS = 30;
+export const LIST_LIMIT = 20;
 
 // Los puertos (repositorios, cache, generador de ids) se inyectan; este modulo no conoce frameworks ni drivers.
-function createUseCases({ itemsRepository, itemsCache, eventsRepository, generateId, sleep }) {
+export function createUseCases({ itemsRepository, itemsCache, eventsRepository, generateId, sleep }) {
   return {
     simulate: (delayMs) => sleep(delayMs),
 
@@ -48,5 +48,3 @@ function createUseCases({ itemsRepository, itemsCache, eventsRepository, generat
     recordConsumedEvent: (event) => eventsRepository.createIfAbsent(event),
   };
 }
-
-module.exports = { createUseCases, CACHE_TTL_SECONDS, LIST_LIMIT };

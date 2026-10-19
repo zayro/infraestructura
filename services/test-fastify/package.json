@@ -2,9 +2,10 @@
   "name": "test-fastify-service",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "main": "app.js",
   "scripts": {
-    "start": "node --require ./telemetry.js app.js",
+    "start": "node --import ./telemetry.js app.js",
     "test": "node --test"
   },
   "dependencies": {

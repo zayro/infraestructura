@@ -1,9 +1,9 @@
-const { NodeSDK } = require("@opentelemetry/sdk-node");
-const { OTLPTraceExporter } = require("@opentelemetry/exporter-trace-otlp-http");
-const { OTLPLogExporter } = require("@opentelemetry/exporter-logs-otlp-http");
-const { BatchLogRecordProcessor } = require("@opentelemetry/sdk-logs");
-const { HttpInstrumentation } = require("@opentelemetry/instrumentation-http");
-const { resourceFromAttributes } = require("@opentelemetry/resources");
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
+import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 
 const endpoint = (process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://otel-collector:4318").replace(/\/$/, "");
 

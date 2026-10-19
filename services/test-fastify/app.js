@@ -1,18 +1,18 @@
-const { randomUUID } = require("node:crypto");
-const fastify = require("fastify");
-const { loadConfig } = require("./src/config");
-const { createUseCases } = require("./src/application/use-cases");
-const { createTracing, createStructuredLogger } = require("./src/infrastructure/observability");
-const { createMetrics } = require("./src/infrastructure/metrics");
-const {
+import { randomUUID } from "node:crypto";
+import fastify from "fastify";
+import { loadConfig } from "./src/config.js";
+import { createUseCases } from "./src/application/use-cases.js";
+import { createTracing, createStructuredLogger } from "./src/infrastructure/observability.js";
+import { createMetrics } from "./src/infrastructure/metrics.js";
+import {
   createPool,
   ensureSchema,
   PostgresItemsRepository,
   PostgresEventsRepository,
-} = require("./src/infrastructure/postgres");
-const { createRedisClient, RedisItemsCache } = require("./src/infrastructure/redis");
-const { RabbitMQEventConsumer } = require("./src/infrastructure/rabbitmq");
-const { registerRoutes } = require("./src/interfaces/http/routes");
+} from "./src/infrastructure/postgres.js";
+import { createRedisClient, RedisItemsCache } from "./src/infrastructure/redis.js";
+import { RabbitMQEventConsumer } from "./src/infrastructure/rabbitmq.js";
+import { registerRoutes } from "./src/interfaces/http/routes.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

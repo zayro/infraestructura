@@ -1,7 +1,7 @@
-const { trace } = require("@opentelemetry/api");
-const { logs, SeverityNumber } = require("@opentelemetry/api-logs");
+import { trace } from "@opentelemetry/api";
+import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 
-function createTracing(serviceName) {
+export function createTracing(serviceName) {
   const tracer = trace.getTracer(serviceName);
 
   return {
@@ -26,7 +26,7 @@ function createTracing(serviceName) {
 }
 
 // Log JSON por consola y por OTLP, correlacionado con la traza activa.
-function createStructuredLogger(serviceName) {
+export function createStructuredLogger(serviceName) {
   const otelLogger = logs.getLogger(serviceName);
 
   return function structuredLog(event, fields = {}) {
@@ -42,8 +42,6 @@ function createStructuredLogger(serviceName) {
   };
 }
 
-function logError(event, err) {
+export function logError(event, err) {
   console.error(JSON.stringify({ event, error: err.message }));
 }
-
-module.exports = { createTracing, createStructuredLogger, logError };

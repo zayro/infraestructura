@@ -1,7 +1,7 @@
-const { context, propagation, SpanKind } = require("@opentelemetry/api");
-const amqp = require("amqplib");
-const { parseEventMessage } = require("../application/event-message");
-const { logError } = require("./observability");
+import { context, propagation, SpanKind } from "@opentelemetry/api";
+import amqp from "amqplib";
+import { parseEventMessage } from "../application/event-message.js";
+import { logError } from "./observability.js";
 
 const RECONNECT_DELAY_MS = 5000;
 const PREFETCH = 10;
@@ -10,7 +10,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Consume la cola con ack manual: confirma tras procesar, reencola ante fallos transitorios
 // y descarta (sin reencolar) los mensajes invalidos.
-class RabbitMQEventConsumer {
+export class RabbitMQEventConsumer {
   constructor({ url, queue, tracing, log, onEvent }) {
     this.url = url;
     this.queue = queue;
@@ -99,5 +99,3 @@ class RabbitMQEventConsumer {
     }
   }
 }
-
-module.exports = { RabbitMQEventConsumer };

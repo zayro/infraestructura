@@ -1,13 +1,13 @@
-const { createClient } = require("redis");
-const { logError } = require("./observability");
+import { createClient } from "redis";
+import { logError } from "./observability.js";
 
-function createRedisClient(url) {
+export function createRedisClient(url) {
   const client = createClient({ url });
   client.on("error", (err) => logError("redis_error", err));
   return client;
 }
 
-class RedisItemsCache {
+export class RedisItemsCache {
   constructor(client, tracing, key) {
     this.client = client;
     this.tracing = tracing;
@@ -30,5 +30,3 @@ class RedisItemsCache {
     await this.client.del(this.key);
   }
 }
-
-module.exports = { createRedisClient, RedisItemsCache };

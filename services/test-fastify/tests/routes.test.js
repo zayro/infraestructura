@@ -1,8 +1,8 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fastify = require("fastify");
-const { registerRoutes } = require("../src/interfaces/http/routes");
-const { createUseCases } = require("../src/application/use-cases");
+import test from "node:test";
+import assert from "node:assert/strict";
+import fastify from "fastify";
+import { registerRoutes } from "../src/interfaces/http/routes.js";
+import { createUseCases } from "../src/application/use-cases.js";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 

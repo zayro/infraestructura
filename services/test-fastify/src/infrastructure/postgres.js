@@ -1,5 +1,7 @@
-const { Pool } = require("pg");
-const { logError } = require("./observability");
+import pg from "pg";
+import { logError } from "./observability.js";
+
+const { Pool } = pg;
 
 const ITEM_COLUMNS = "id, name, created_at";
 const EVENT_COLUMNS = "event_id, name, received_at, updated_at";
@@ -12,13 +14,13 @@ const toEvent = (row) => ({
   updatedAt: row.updated_at,
 });
 
-function createPool(databaseUrl) {
+export function createPool(databaseUrl) {
   const pool = new Pool({ connectionString: databaseUrl });
   pool.on("error", (err) => logError("pg_pool_error", err));
   return pool;
 }
 
-async function ensureSchema(pool) {
+export async function ensureSchema(pool) {
   await pool.query(
     "CREATE TABLE IF NOT EXISTS node_items (" +
       "id SERIAL PRIMARY KEY, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
@@ -30,7 +32,7 @@ async function ensureSchema(pool) {
   await pool.query("ALTER TABLE node_events ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ");
 }
 
-class PostgresItemsRepository {
+export class PostgresItemsRepository {
   constructor(pool, tracing) {
     this.pool = pool;
     this.tracing = tracing;
@@ -51,7 +53,7 @@ class PostgresItemsRepository {
   }
 }
 
-class PostgresEventsRepository {
+export class PostgresEventsRepository {
   constructor(pool, tracing) {
     this.pool = pool;
     this.tracing = tracing;
@@ -112,5 +114,3 @@ class PostgresEventsRepository {
     return rowCount > 0;
   }
 }
-
-module.exports = { createPool, ensureSchema, PostgresItemsRepository, PostgresEventsRepository };

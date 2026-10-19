@@ -2,7 +2,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const NAME_MAX_LENGTH = 100;
 
 // Valida el cuerpo de un mensaje publicado por otros servicios; lanza Error si es invalido.
-function parseEventMessage(raw) {
+export function parseEventMessage(raw) {
   const event = JSON.parse(raw);
   if (
     !event ||
@@ -16,5 +16,3 @@ function parseEventMessage(raw) {
   }
   return { eventId: event.event_id, name: event.name };
 }
-
-module.exports = { parseEventMessage };
