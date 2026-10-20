@@ -101,8 +101,8 @@ def create_app() -> FastAPI:
             rabbit_channel = await rabbit_connection.channel(publisher_confirms=True)
             await rabbit_channel.declare_queue(settings["rabbitmq_queue"], durable=True)
 
-            repository = PostgresItemsRepository(pool, tracer)
-            events_repository = PostgresEventsRepository(pool, tracer)
+            repository = PostgresItemsRepository(pool, tracer, logger)
+            events_repository = PostgresEventsRepository(pool, tracer, logger)
             cache = RedisItemsCache(redis_client, tracer)
             publisher = RabbitMQEventPublisher(
                 rabbit_channel,

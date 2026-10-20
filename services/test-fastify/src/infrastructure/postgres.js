@@ -1,4 +1,5 @@
 import pg from "pg";
+import { trace } from "@opentelemetry/api";
 import { logError } from "./observability.js";
 
 const { Pool } = pg;
@@ -13,6 +14,23 @@ const toEvent = (row) => ({
   receivedAt: row.received_at,
   updatedAt: row.updated_at,
 });
+
+// Registra db_write_ok / db_write_failed (con trace_id) dentro del span activo.
+async function loggedWrite(log, table, operation, fields, fn) {
+  trace.getActiveSpan()?.setAttributes({ "db.sql.table": table, "db.operation": operation });
+  try {
+    const result = await fn();
+    log("db_write_ok", { table, operation, ...fields });
+    return result;
+  } catch (err) {
+    log(
+      "db_write_failed",
+      { table, operation, ...fields, error_type: err.code ?? err.name, error: err.message },
+      "ERROR"
+    );
+    throw err;
+  }
+}
 
 export function createPool(databaseUrl) {
   const pool = new Pool({ connectionString: databaseUrl });
@@ -33,14 +51,17 @@ export async function ensureSchema(pool) {
 }
 
 export class PostgresItemsRepository {
-  constructor(pool, tracing) {
+  constructor(pool, tracing, log) {
     this.pool = pool;
     this.tracing = tracing;
+    this.log = log;
   }
 
   async create(name) {
     const { rows } = await this.tracing.withSpan("node.db_insert", { "db.system": "postgresql" }, () =>
-      this.pool.query(`INSERT INTO node_items (name) VALUES ($1) RETURNING ${ITEM_COLUMNS}`, [name])
+      loggedWrite(this.log, "node_items", "INSERT", {}, () =>
+        this.pool.query(`INSERT INTO node_items (name) VALUES ($1) RETURNING ${ITEM_COLUMNS}`, [name])
+      )
     );
     return toItem(rows[0]);
   }
@@ -54,20 +75,28 @@ export class PostgresItemsRepository {
 }
 
 export class PostgresEventsRepository {
-  constructor(pool, tracing) {
+  constructor(pool, tracing, log) {
     this.pool = pool;
     this.tracing = tracing;
+    this.log = log;
   }
 
-  async #query(spanName, text, params) {
-    return this.tracing.withSpan(spanName, { "db.system": "postgresql" }, () => this.pool.query(text, params));
+  // `write` ({ operation, eventId }) activa el log de escritura para INSERT/UPDATE/DELETE.
+  async #query(spanName, text, params, write) {
+    return this.tracing.withSpan(spanName, { "db.system": "postgresql" }, () => {
+      const run = () => this.pool.query(text, params);
+      return write
+        ? loggedWrite(this.log, "node_events", write.operation, { event_id: write.eventId }, run)
+        : run();
+    });
   }
 
   async create({ eventId, name }) {
     const { rows } = await this.#query(
       "node.db_insert_event",
       `INSERT INTO node_events (event_id, name) VALUES ($1, $2) RETURNING ${EVENT_COLUMNS}`,
-      [eventId, name]
+      [eventId, name],
+      { operation: "INSERT", eventId }
     );
     return toEvent(rows[0]);
   }
@@ -76,7 +105,8 @@ export class PostgresEventsRepository {
     await this.#query(
       "node.db_insert_event",
       "INSERT INTO node_events (event_id, name) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING",
-      [eventId, name]
+      [eventId, name],
+      { operation: "INSERT", eventId }
     );
   }
 
@@ -102,15 +132,19 @@ export class PostgresEventsRepository {
     const { rows } = await this.#query(
       "node.db_update_event",
       `UPDATE node_events SET name = $1, updated_at = now() WHERE event_id = $2 RETURNING ${EVENT_COLUMNS}`,
-      [name, eventId]
+      [name, eventId],
+      { operation: "UPDATE", eventId }
     );
     return rows[0] ? toEvent(rows[0]) : null;
   }
 
   async delete(eventId) {
-    const { rowCount } = await this.#query("node.db_delete_event", "DELETE FROM node_events WHERE event_id = $1", [
-      eventId,
-    ]);
+    const { rowCount } = await this.#query(
+      "node.db_delete_event",
+      "DELETE FROM node_events WHERE event_id = $1",
+      [eventId],
+      { operation: "DELETE", eventId }
+    );
     return rowCount > 0;
   }
 }

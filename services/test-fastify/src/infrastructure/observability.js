@@ -1,4 +1,4 @@
-import { trace } from "@opentelemetry/api";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 
 export function createTracing(serviceName) {
@@ -17,6 +17,10 @@ export function createTracing(serviceName) {
         try {
           span.setAttributes(attributes);
           return await fn();
+        } catch (err) {
+          span.recordException(err);
+          span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+          throw err;
         } finally {
           span.end();
         }
@@ -29,7 +33,7 @@ export function createTracing(serviceName) {
 export function createStructuredLogger(serviceName) {
   const otelLogger = logs.getLogger(serviceName);
 
-  return function structuredLog(event, fields = {}) {
+  return function structuredLog(event, fields = {}, level = "INFO") {
     const payload = { event, ...fields };
     const ctx = trace.getActiveSpan()?.spanContext();
     if (ctx) {
@@ -37,8 +41,8 @@ export function createStructuredLogger(serviceName) {
       payload.span_id = ctx.spanId;
     }
     const body = JSON.stringify(payload);
-    console.log(body);
-    otelLogger.emit({ severityNumber: SeverityNumber.INFO, severityText: "INFO", body });
+    (level === "ERROR" ? console.error : console.log)(body);
+    otelLogger.emit({ severityNumber: SeverityNumber[level], severityText: level, body });
   };
 }
 

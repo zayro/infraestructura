@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "demo-etapa1-infraestructura",
     "name": "Demo Etapa 1 - Infraestructura Microservicios",
-    "description": "Colección para probar el stack Traefik → student-service. Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik y student-service estén healthy.",
+    "description": "Colección para probar el stack Traefik → student-service, test-fastapi-service y test-fastify-service (items, eventos CRUD). Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik y student-service estén healthy.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -25,6 +25,16 @@
       "key": "student_id",
       "value": "U00185589",
       "description": "ID de estudiante usado en las pruebas del README"
+    },
+    {
+      "key": "fastapi_event_id",
+      "value": "",
+      "description": "event_id del último evento creado en FastAPI (lo rellena el test)"
+    },
+    {
+      "key": "fastify_event_id",
+      "value": "",
+      "description": "event_id del último evento creado en Fastify (lo rellena el test)"
     },
     {
       "key": "trace_id",
@@ -164,6 +174,137 @@
             },
             "description": "GET /health/ready del student-service a través de Traefik."
           },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "FastAPI - test-fastapi-service",
+      "item": [
+        {
+          "name": "Ping",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test", "host": ["{{base_url}}"], "path": ["api", "test"] }, "description": "Ping del servicio FastAPI vía Traefik." },
+          "response": []
+        },
+        {
+          "name": "Items - crear",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"postman-item\"}" },
+            "url": { "raw": "{{base_url}}/api/test/items", "host": ["{{base_url}}"], "path": ["api", "test", "items"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Items - listar (Redis cache)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/items", "host": ["{{base_url}}"], "path": ["api", "test", "items"] } },
+          "response": []
+        },
+        {
+          "name": "Events - crear (202, publica en RabbitMQ)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 202', () => pm.response.to.have.status(202));", "pm.collectionVariables.set('fastapi_event_id', pm.response.json().event_id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"postman-event\"}" },
+            "url": { "raw": "{{base_url}}/api/test/events", "host": ["{{base_url}}"], "path": ["api", "test", "events"] },
+            "description": "Guarda el evento en test_events y lo publica en RabbitMQ (lo consume test-fastify). Guarda event_id en `fastapi_event_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Events - listar",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/events", "host": ["{{base_url}}"], "path": ["api", "test", "events"] } },
+          "response": []
+        },
+        {
+          "name": "Events - obtener por id",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] } },
+          "response": []
+        },
+        {
+          "name": "Events - actualizar",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"postman-event-updated\"}" },
+            "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Events - eliminar (204)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 204', () => pm.response.to.have.status(204));"] } }],
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] } },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fastify - test-fastify-service",
+      "item": [
+        {
+          "name": "Ping (soporta ?fail=1 y ?delay_ms=)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/node?delay_ms=0&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "0" }, { "key": "fail", "value": "0", "description": "1 = fuerza error 500" }] }
+          },
+          "response": []
+        },
+        {
+          "name": "Items - crear",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"postman-item\"}" },
+            "url": { "raw": "{{base_url}}/api/node/items", "host": ["{{base_url}}"], "path": ["api", "node", "items"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Items - listar (Redis cache)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/items", "host": ["{{base_url}}"], "path": ["api", "node", "items"] } },
+          "response": []
+        },
+        {
+          "name": "Events - crear",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('fastify_event_id', pm.response.json().event.event_id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"postman-event\"}" },
+            "url": { "raw": "{{base_url}}/api/node/events", "host": ["{{base_url}}"], "path": ["api", "node", "events"] },
+            "description": "Guarda el evento en node_events. Guarda event_id en `fastify_event_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Events - listar (incluye los consumidos de RabbitMQ)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/events", "host": ["{{base_url}}"], "path": ["api", "node", "events"] } },
+          "response": []
+        },
+        {
+          "name": "Events - obtener por id",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] } },
+          "response": []
+        },
+        {
+          "name": "Events - actualizar",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"postman-event-updated\"}" },
+            "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Events - eliminar",
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] } },
           "response": []
         }
       ]

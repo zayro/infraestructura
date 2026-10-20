@@ -27,9 +27,9 @@ async function main() {
   const cache = createRedisClient(config.redisUrl);
 
   const useCases = createUseCases({
-    itemsRepository: new PostgresItemsRepository(pool, tracing),
+    itemsRepository: new PostgresItemsRepository(pool, tracing, log),
     itemsCache: new RedisItemsCache(cache, tracing, config.itemsCacheKey),
-    eventsRepository: new PostgresEventsRepository(pool, tracing),
+    eventsRepository: new PostgresEventsRepository(pool, tracing, log),
     generateId: randomUUID,
     sleep,
   });

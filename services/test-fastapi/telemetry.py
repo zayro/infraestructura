@@ -54,7 +54,7 @@ def setup_telemetry(service_name: str):
     return trace.get_tracer(service_name), app_logger
 
 
-def structured_log(logger, event: str, **fields):
+def structured_log(logger, event: str, level: int = logging.INFO, **fields):
     span_context = trace.get_current_span().get_span_context()
     payload = {"event": event, **fields}
 
@@ -62,4 +62,4 @@ def structured_log(logger, event: str, **fields):
         payload["trace_id"] = format(span_context.trace_id, "032x")
         payload["span_id"] = format(span_context.span_id, "016x")
 
-    logger.info(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    logger.log(level, json.dumps(payload, ensure_ascii=False, separators=(",", ":")))

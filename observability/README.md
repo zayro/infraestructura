@@ -48,3 +48,24 @@ curl http://localhost:3200/ready
 ```
 
 Abra Grafana en `http://localhost:3000`. Si faltan logs o trazas, revise `docker compose logs otel-collector`; si faltan metricas, consulte `http://localhost:9090/targets`.
+
+## Rastrear inserts y fallos de escritura
+
+Los servicios `test-fastapi-service` y `test-fastify-service` registran cada escritura en PostgreSQL (INSERT/UPDATE/DELETE) como un log JSON con `table`, `operation`, `event_id` (en eventos), `trace_id` y `span_id`:
+
+- `db_write_ok` (INFO) cuando la escritura termina bien.
+- `db_write_failed` (ERROR) con `error_type` y `error` cuando falla. El span correspondiente queda con estado `error` y la excepcion registrada.
+
+Consultas en Grafana → Explore:
+
+```logql
+{service_name="test-fastify-service"} |= "db_write_failed"
+{service_name=~"test-.*"} | json | event="db_write_failed" | table="node_events"
+{service_name=~"test-.*"} | json | event="db_write_ok" | operation="INSERT"
+```
+
+```traceql
+{ name=~".*db_insert.*" && status=error }
+```
+
+Para saltar de un log a su traza, copie el `trace_id` y busquelo en Tempo (`/api/traces/<trace_id>`).
