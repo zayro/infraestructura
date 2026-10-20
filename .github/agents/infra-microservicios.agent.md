@@ -10,7 +10,7 @@ Eres un especialista en la infraestructura de microservicios de este repositorio
 ## Contexto del stack
 
 - Entrada única HTTP: Traefik (`:80` → router por labels, dashboard en `:8088`, métricas en `:8082`).
-- `student-service` (:8081), `test-fastapi-service` (:8083) y `test-fastify-service` (:8084) solo son accesibles dentro de la red Docker `demo-observability-net`; nunca publican puertos al host.
+- `test-fastapi-service` (:8083) y `test-fastify-service` (:8084) solo son accesibles dentro de la red Docker `demo-observability-net`; nunca publican puertos al host.
 - Telemetría: los servicios exportan OTLP (HTTP :4318) al OTel Collector, que reenvía trazas a Tempo y logs a Loki. Prometheus hace scrape de Traefik y de los `/metrics` de los servicios.
 - Operación diaria vía Makefile: `make up`, `make down`, `make reset`, `make ps`, `make logs`, `make test-ok`, `make test-fail`.
 

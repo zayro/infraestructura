@@ -3,8 +3,8 @@
 Entorno de desarrollo autocontenido para validar:
 
 - Traefik como punto unico de entrada / API Gateway ligero;
-- microservicios HTTP (`student-service` y servicios de prueba en FastAPI y Fastify);
-- trazas, metricas y logs de cada servicio, escritos en distintos lenguajes (Python/Flask, Python/FastAPI y Node.js/Fastify);
+- microservicios HTTP (servicios de prueba en FastAPI y Fastify);
+- trazas, metricas y logs de cada servicio, escritos en distintos lenguajes (Python/FastAPI y Node.js/Fastify);
 - OpenTelemetry Collector;
 - Prometheus para metricas;
 - Loki para logs;
@@ -24,7 +24,6 @@ Traefik  (rate limit + limite de concurrencia + cabeceras de seguridad)
   |  reverse proxy / routing por PathPrefix
   |-- /api/test --> test-fastapi-service :8083 (solo red Docker)
   |-- /api/node --> test-fastify-service :8084 (solo red Docker)
-  `-- /         --> student-service        :8081 (solo red Docker)
 
 test-fastapi-service
   `-- AMQP: cola durable test.events --> RabbitMQ --> test-fastify-service
@@ -45,16 +44,15 @@ Prometheus + Loki + Tempo ----------> Grafana
 ### Rol de cada componente
 
 - `traefik`: API gateway. Es el unico punto HTTP publicado para las APIs, decide a que servicio enrutar y aplica rate limit, limite de concurrencia y cabeceras de seguridad.
-- `student-service`, `test-fastapi-service` y `test-fastify-service`: microservicios (ver tabla).
+- `test-fastapi-service` y `test-fastify-service`: microservicios (ver tabla).
 - `rabbitmq`: broker AMQP interno para el ejemplo asincrono; los servicios conservan sus rutas HTTP y RabbitMQ publica AMQP (5672) y la consola de gestión (15672) solo en `127.0.0.1`.
 
-El antiguo `gateway-service` se elimino porque Traefik ya cumple ese papel.
+El antiguo `gateway-service` y el `student-service` (Flask, catch-all `/`) se eliminaron: Traefik ya cumple el papel de gateway y los servicios de prueba cubren el demo.
 
 ### Servicios
 
 | Servicio | Tecnologia | Puerto interno | Ruta en Traefik | Endpoints |
 |---|---|---|---|---|
-| `student-service` | Python 3.12 / Flask | 8081 | `/` (catch-all) | `/`, `/api/demo`, `/students/<id>` |
 | `test-fastapi-service` | Python 3.12 / FastAPI + Uvicorn | 8083 | `/api/test` | `/api/test`, `/api/test/items`, `/api/test/events` (CRUD) |
 | `test-fastify-service` | Node.js 22 / Fastify 5 | 8084 | `/api/node` | `/api/node`, `/api/node/items`, `/api/node/events` (CRUD) |
 | `postgres` | PostgreSQL 17 | 5432 | `127.0.0.1:5432` | volumen `postgres-data` |
@@ -63,13 +61,13 @@ El antiguo `gateway-service` se elimino porque Traefik ya cumple ese papel.
 
 Todos exponen tambien `/metrics`, `/health/live` y `/health/ready`, envian trazas y logs por OTLP al collector y publican las metricas `demo_http_requests_total` y `demo_http_request_duration_seconds`.
 
-Los servicios de prueba aceptan los parametros `delay_ms` (0-2000, latencia simulada) y `fail=1` (error 500 simulado). Las rutas `/api/test` y `/api/node` son mas especificas que `/`, por lo que Traefik las prioriza.
+Los servicios de prueba aceptan los parametros `delay_ms` (0-2000, latencia simulada) y `fail=1` (error 500 simulado). No hay ruta catch-all: las rutas no definidas responden 404 desde Traefik.
 
 Los servicios de prueba tambien exponen un ejemplo CRUD con PostgreSQL y cache Redis (patron cache-aside, TTL 30 s): `/api/test/items` (FastAPI, tabla `test_items`) y `/api/node/items` (Fastify, tabla `node_items`). `postgres` y `redis` solo son accesibles desde la red Docker; sus datos persisten en los volumenes `postgres-data` y `redis-data`. Las credenciales se configuran con `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB` (ver `.env.example`; evita caracteres especiales en la contrasena porque se usa dentro de una URL).
 
 RabbitMQ conecta los servicios de forma asincrona: FastAPI publica eventos persistentes en la cola durable `test.events`; Fastify los consume con confirmacion manual, los almacena idempotentemente en `node_events` y permite gestionarlos por `/api/node/events` (CRUD: `POST` crea un registro directo en la tabla sin publicarlo en RabbitMQ, `GET` lista, `GET/PUT/DELETE /api/node/events/{event_id}` consultan, actualizan o eliminan; `404` si no existe y `400` si el id no es UUID o el nombre es invalido). El `traceparent` se propaga en los headers del mensaje para correlacionar publicacion y consumo. RabbitMQ publica sus puertos solo en localhost y persiste en `rabbitmq-data`; configura `RABBITMQ_USER` y `RABBITMQ_PASSWORD` en `.env`.
 
-Codigo en `services/student`, `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene su propio `Dockerfile`, su copia de la configuracion de telemetria y su `compose.yaml` autonomo.
+Codigo en `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene su propio `Dockerfile`, su copia de la configuracion de telemetria y su `compose.yaml` autonomo.
 
 ### Organizacion de Compose
 
@@ -106,7 +104,7 @@ docker compose ps
 Logs principales:
 
 ```bash
-docker compose logs -f traefik student-service test-fastapi-service test-fastify-service otel-collector
+docker compose logs -f traefik test-fastapi-service test-fastify-service otel-collector
 ```
 
 ## Pruebas funcionales
@@ -114,7 +112,7 @@ docker compose logs -f traefik student-service test-fastapi-service test-fastify
 ### 1. Flujo correcto pasando obligatoriamente por Traefik
 
 ```bash
-curl "http://localhost:8000/api/demo?student_id=U00185589&delay_ms=150&fail=0"
+curl "http://localhost:8000/api/node?delay_ms=150&fail=0"
 ```
 
 Flujo esperado:
@@ -126,7 +124,7 @@ curl
 Traefik :80 (publicado en :8000)
   |
   v
-student-service :8081
+test-fastify-service :8084
 ```
 
 Debe responder HTTP 200 e incluir un `trace_id` generado por el microservicio.
@@ -134,25 +132,22 @@ Debe responder HTTP 200 e incluir un `trace_id` generado por el microservicio.
 ### 2. Error controlado
 
 ```bash
-curl -i "http://localhost:8000/api/demo?student_id=U00185589&delay_ms=100&fail=1"
+curl -i "http://localhost:8000/api/node?delay_ms=100&fail=1"
 ```
 
-El `student-service` retorna 500 y Traefik reenvia esa respuesta al cliente.
+El `test-fastify-service` retorna 500 y Traefik reenvia esa respuesta al cliente.
 
 ### 3. Latencia
 
 ```bash
-curl "http://localhost:8000/api/demo?student_id=U00185589&delay_ms=1200&fail=0"
+curl "http://localhost:8000/api/node?delay_ms=1200&fail=0"
 ```
 
 Esto incrementa la latencia observada sin modificar infraestructura.
 
 ### 4. Health check a traves de Traefik
 
-```bash
-curl -i http://localhost:8000/health/live
-curl -i http://localhost:8000/health/ready
-```
+Las rutas `/health/*` no se publican por Traefik (no hay catch-all). El estado de cada servicio se revisa con `docker compose ps` y los healthchecks de contenedor.
 
 ### 5. Servicios de prueba (FastAPI y Fastify)
 
@@ -244,7 +239,6 @@ Los servicios se publican mediante labels de Docker:
 
 | Router | Regla | Servicio destino |
 |---|---|---|
-| `demo-student` | `PathPrefix(`/`)` | `student-service:8081` |
 | `demo-test-fastapi` | `PathPrefix(`/api/test`)` | `test-fastapi-service:8083` |
 | `demo-test-fastify` | `PathPrefix(`/api/node`)` | `test-fastify-service:8084` |
 
@@ -316,13 +310,12 @@ Para revisar logs de los microservicios:
 3. Consulte, por ejemplo:
 
 ```logql
-{service_name="student-service"}
+{service_name="test-fastify-service"}
 ```
 
 O:
 
 ```logql
-{service_name="student-service"} |= "student_lookup"
 {service_name="test-fastapi-service"} |= "test_ok"
 {service_name="test-fastify-service"} |= "node_ok"
 ```
@@ -365,20 +358,20 @@ sum by (service) (rate(demo_http_requests_total{status=~"5.."}[1m]))
 
 Traefik utiliza su `ping` interno como health check del contenedor.
 
-Cada servicio (`student-service`, `test-fastapi-service`, `test-fastify-service`):
+Cada servicio (`test-fastapi-service`, `test-fastify-service`):
 
 ```text
 GET /health/live
 GET /health/ready
 ```
 
-Las rutas `/health/*` de Traefik apuntan al `student-service` por ser el catch-all. Los healthchecks de contenedor de cada servicio se declaran en `docker-compose.yml` (el de Fastify usa `127.0.0.1` porque `localhost` resuelve a IPv6 en Alpine).
+Estas rutas se consultan dentro de la red Docker; Traefik no las publica. Los healthchecks de contenedor de cada servicio se declaran en su `compose.yaml` (el de Fastify usa `127.0.0.1` porque `localhost` resuelve a IPv6 en Alpine).
 
 ### Validar dependencia caida
 
 ```bash
-docker compose stop student-service
-curl -i http://localhost:8000/health/ready
+docker compose stop test-fastify-service
+curl -i http://localhost:8000/api/node
 ```
 
 Traefik deja de enrutar al servicio no saludable y responde 404.
@@ -386,7 +379,7 @@ Traefik deja de enrutar al servicio no saludable y responde 404.
 Para restaurar:
 
 ```bash
-docker compose start student-service
+docker compose start test-fastify-service
 ```
 
 ## Observabilidad: que hace cada componente
@@ -458,18 +451,18 @@ docker compose down -v
 
 1. Levantar todos los contenedores y verificar `docker compose ps`.
 2. Confirmar que ningun microservicio tenga puertos publicados al host.
-3. Abrir `http://localhost:8088/dashboard/` y confirmar los routers `demo-student`, `demo-test-fastapi` y `demo-test-fastify`.
-4. Ejecutar 10 solicitudes correctas mediante `http://localhost:8000/api/demo`.
-5. Ejecutar 3 solicitudes con `fail=1`, tambien contra `/api/test` y `/api/node`.
+3. Abrir `http://localhost:8088/dashboard/` y confirmar los routers `demo-test-fastapi` y `demo-test-fastify`.
+4. Ejecutar 10 solicitudes correctas mediante `http://localhost:8000/api/node` y `/api/test`.
+5. Ejecutar 3 solicitudes con `fail=1`, contra `/api/test` y `/api/node`.
 6. Ejecutar 3 solicitudes con `delay_ms=1200`.
 7. Confirmar el target `traefik` como `UP` en Prometheus.
 8. Confirmar metricas de Traefik en Prometheus.
 9. Confirmar metricas de las aplicaciones en Prometheus.
 10. Confirmar logs de aplicaciones en Loki desde Grafana.
 11. Confirmar trazas en Tempo desde Grafana.
-12. Detener `student-service` y validar que `/health/ready` deje de responder 200 atravesando Traefik.
+12. Detener `test-fastify-service` y validar que `/api/node` deje de responder 200 atravesando Traefik.
 13. Lanzar una rafaga paralela contra `/api/node` y confirmar respuestas 429.
-14. Confirmar en Prometheus los targets `student-service`, `test-fastapi-service` y `test-fastify-service` como `UP`.
+14. Confirmar en Prometheus los targets `test-fastapi-service` y `test-fastify-service` como `UP`.
 
 ## Bibliografia y referencias
 

@@ -9,7 +9,6 @@ include:
     project_directory: .
   - path: compose/gateway.yml
     project_directory: .
-  - services/student/compose.yaml
   - services/test-fastapi/compose.yaml
   - services/test-fastify/compose.yaml
   # Cuando un servicio viva en su propio repositorio, sustituya su linea por la URL de Git:

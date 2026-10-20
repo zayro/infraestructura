@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "demo-etapa1-infraestructura",
     "name": "Demo Etapa 1 - Infraestructura Microservicios",
-    "description": "Colección para probar el stack Traefik → student-service, test-fastapi-service y test-fastify-service (items, eventos CRUD). Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik y student-service estén healthy.",
+    "description": "Colección para probar el stack Traefik → test-fastapi-service y test-fastify-service (items, eventos CRUD). Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik y los servicios estén healthy.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -22,11 +22,6 @@
       "description": "Prometheus UI"
     },
     {
-      "key": "student_id",
-      "value": "U00185589",
-      "description": "ID de estudiante usado en las pruebas del README"
-    },
-    {
       "key": "fastapi_event_id",
       "value": "",
       "description": "event_id del último evento creado en FastAPI (lo rellena el test)"
@@ -44,22 +39,8 @@
   ],
   "item": [
     {
-      "name": "API vía Traefik",
+      "name": "Demo - Traefik → Fastify",
       "item": [
-        {
-          "name": "Index (info del servicio)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/",
-              "host": ["{{base_url}}"],
-              "path": [""]
-            },
-            "description": "Devuelve JSON con el nombre del servicio y sus endpoints. Confirma que Traefik enruta al student-service."
-          },
-          "response": []
-        },
         {
           "name": "Demo - flujo OK",
           "event": [
@@ -71,7 +52,6 @@
                   "pm.test('status 200', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
-                  "pm.test('student presente', () => pm.expect(body.student).to.exist);",
                   "pm.collectionVariables.set('trace_id', body.trace_id);",
                   "console.log('trace_id:', body.trace_id, '→ búscalo en Grafana/Tempo');"
                 ]
@@ -82,16 +62,15 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/demo?student_id={{student_id}}&delay_ms=150&fail=0",
+              "raw": "{{base_url}}/api/node?delay_ms=150&fail=0",
               "host": ["{{base_url}}"],
-              "path": ["api", "demo"],
+              "path": ["api", "node"],
               "query": [
-                { "key": "student_id", "value": "{{student_id}}" },
                 { "key": "delay_ms", "value": "150", "description": "Latencia simulada (0-2000 ms)" },
-                { "key": "fail", "value": "0", "description": "1 = fuerza error 500 en student-service" }
+                { "key": "fail", "value": "0", "description": "1 = fuerza error 500 en test-fastify-service" }
               ]
             },
-            "description": "Equivalente a `make test-ok`. Flujo Traefik → student. Debe responder 200 con un trace_id (se guarda en la variable de colección `trace_id`)."
+            "description": "Equivalente a `make test-ok`. Flujo Traefik → test-fastify-service. Debe responder 200 con un trace_id (se guarda en la variable de colección `trace_id`)."
           },
           "response": []
         },
@@ -103,7 +82,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('status 500 (error simulado de student)', () => pm.response.to.have.status(500));",
+                  "pm.test('status 500 (error simulado)', () => pm.response.to.have.status(500));",
                   "const body = pm.response.json();",
                   "pm.test('ok=false', () => pm.expect(body.ok).to.eql(false));",
                   "pm.collectionVariables.set('trace_id', body.trace_id);",
@@ -116,16 +95,15 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/demo?student_id={{student_id}}&delay_ms=100&fail=1",
+              "raw": "{{base_url}}/api/node?delay_ms=100&fail=1",
               "host": ["{{base_url}}"],
-              "path": ["api", "demo"],
+              "path": ["api", "node"],
               "query": [
-                { "key": "student_id", "value": "{{student_id}}" },
                 { "key": "delay_ms", "value": "100" },
                 { "key": "fail", "value": "1" }
               ]
             },
-            "description": "Equivalente a `make test-fail`. student-service devuelve 500. Útil para validar trazas y logs de error."
+            "description": "Equivalente a `make test-fail`. test-fastify-service devuelve 500. Útil para validar trazas y logs de error."
           },
           "response": []
         },
@@ -135,44 +113,15 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/demo?student_id={{student_id}}&delay_ms=1200&fail=0",
+              "raw": "{{base_url}}/api/node?delay_ms=1200&fail=0",
               "host": ["{{base_url}}"],
-              "path": ["api", "demo"],
+              "path": ["api", "node"],
               "query": [
-                { "key": "student_id", "value": "{{student_id}}" },
                 { "key": "delay_ms", "value": "1200" },
                 { "key": "fail", "value": "0" }
               ]
             },
             "description": "Incrementa la latencia observada sin tocar infraestructura. Comprueba el histograma demo_http_request_duration_seconds en Prometheus y la duración del span en Tempo."
-          },
-          "response": []
-        },
-        {
-          "name": "Health - liveness (vía Traefik)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/health/live",
-              "host": ["{{base_url}}"],
-              "path": ["health", "live"]
-            },
-            "description": "GET /health/live del student-service a través de Traefik. Esperado: 200 {\"status\":\"UP\"}."
-          },
-          "response": []
-        },
-        {
-          "name": "Health - readiness (vía Traefik)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/health/ready",
-              "host": ["{{base_url}}"],
-              "path": ["health", "ready"]
-            },
-            "description": "GET /health/ready del student-service a través de Traefik."
           },
           "response": []
         }
@@ -313,20 +262,6 @@
       "name": "Observabilidad",
       "item": [
         {
-          "name": "Métricas student (Prometheus format)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/metrics",
-              "host": ["{{base_url}}"],
-              "path": ["metrics"]
-            },
-            "description": "Endpoint /metrics del student-service (texto plano formato Prometheus). Este mismo endpoint es scrapeado por Prometheus."
-          },
-          "response": []
-        },
-        {
           "name": "Buscar última traza en Tempo",
           "request": {
             "method": "GET",
@@ -384,7 +319,7 @@
                 { "key": "state", "value": "active" }
               ]
             },
-            "description": "Lista los targets de scrapeo (traefik, student-service, test-fastapi-service, test-fastify-service) y su health. Todos deben estar 'up'."
+            "description": "Lista los targets de scrapeo (traefik, test-fastapi-service, test-fastify-service) y su health. Todos deben estar 'up'."
           },
           "response": []
         }

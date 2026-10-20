@@ -7,7 +7,6 @@
 | Trabajo (`job_name`) | Destino interno | Informacion recogida |
 |---|---|---|
 | `traefik` | `traefik:8082/metrics` | Trafico de entrada, estados HTTP y latencia del proxy. |
-| `student-service` | `student-service:8081/metrics` | Metricas de la aplicacion Flask. |
 | `test-fastapi-service` | `test-fastapi-service:8083/metrics` | Metricas de la aplicacion FastAPI. |
 | `test-fastify-service` | `test-fastify-service:8084/metrics` | Metricas de la aplicacion Fastify. |
 | `cadvisor` | `cadvisor:8080/metrics` | CPU, memoria y uso de los contenedores Docker. |

@@ -23,7 +23,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      student-service:
+      test-fastapi-service:
+        condition: service_healthy
+      test-fastify-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
