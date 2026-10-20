@@ -80,7 +80,7 @@ Codigo en `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene
 | `compose/gateway.yml` | Traefik y los middlewares compartidos | Plataforma |
 | `services/<servicio>/compose.yaml` | Contenedor, healthcheck y labels de Traefik del servicio | Equipo del servicio |
 
-Cada `compose.yaml` de servicio usa rutas relativas a su carpeta y solo depende de `postgres`, `redis`, `rabbitmq` y `otel-collector` por nombre. Para sacar un servicio a su propio repositorio, mueva su carpeta y reemplace su linea en `include:` por la URL de Git (ejemplo comentado en `docker-compose.yml`): `https://github.com/ORG/<repo>.git#main:compose.yaml`. La base de datos sigue centralizada en `compose/infra.yml`.
+Cada `compose.yaml` de servicio usa rutas relativas a su carpeta y solo depende de `postgres`, `redis`, `rabbitmq` y `otel-collector` por nombre. `test-fastify-service` ya vive en su propio repositorio (`https://github.com/zayro/api-telemetria-fastify.git`) y se incluye por URL: Compose lo clona en su cache y construye la imagen desde alli, sin copia local. Para fijar una version, use un tag o commit: `...api-telemetria-fastify.git#v1.0.0:compose.yaml`. Para sacar otro servicio a su repositorio, repita el patron con su URL. La base de datos sigue centralizada en `compose/infra.yml`.
 
 ## Requisitos
 
