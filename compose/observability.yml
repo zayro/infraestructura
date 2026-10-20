@@ -1,0 +1,111 @@
+# Pipeline de observabilidad: OTel Collector -> Tempo/Loki, Prometheus, cAdvisor y Grafana
+services:
+  otel-collector:
+    build:
+      context: ./observability
+      dockerfile: Dockerfile.otel
+    container_name: demo-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    depends_on:
+      - tempo
+      - loki
+    networks:
+      - demo-net
+
+  prometheus:
+    build:
+      context: ./observability
+      dockerfile: prometheus/Dockerfile
+    container_name: demo-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3d
+    volumes:
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      traefik:
+        condition: service_healthy
+      student-service:
+        condition: service_healthy
+      test-fastapi-service:
+        condition: service_healthy
+      test-fastify-service:
+        condition: service_healthy
+      cadvisor:
+        condition: service_started
+    networks:
+      - demo-net
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.6
+    container_name: demo-cadvisor
+    command:
+      - --docker_only=true
+    expose:
+      - "8080"
+    volumes:
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - demo-net
+
+  loki:
+    build:
+      context: ./observability
+      dockerfile: loki/Dockerfile
+    container_name: demo-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - demo-net
+
+  tempo:
+    build:
+      context: ./observability
+      dockerfile: tempo/Dockerfile
+    container_name: demo-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"
+    networks:
+      - demo-net
+
+  grafana:
+    build:
+      context: ./observability
+      dockerfile: grafana/Dockerfile
+    container_name: demo-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - demo-net
+
+networks:
+  demo-net:
+    name: demo-observability-net
+
+volumes:
+  prometheus-data:
+  loki-data:
+  tempo-data:
+  grafana-data:

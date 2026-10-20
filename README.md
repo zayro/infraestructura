@@ -69,7 +69,20 @@ Los servicios de prueba tambien exponen un ejemplo CRUD con PostgreSQL y cache R
 
 RabbitMQ conecta los servicios de forma asincrona: FastAPI publica eventos persistentes en la cola durable `test.events`; Fastify los consume con confirmacion manual, los almacena idempotentemente en `node_events` y permite gestionarlos por `/api/node/events` (CRUD: `POST` crea un registro directo en la tabla sin publicarlo en RabbitMQ, `GET` lista, `GET/PUT/DELETE /api/node/events/{event_id}` consultan, actualizan o eliminan; `404` si no existe y `400` si el id no es UUID o el nombre es invalido). El `traceparent` se propaga en los headers del mensaje para correlacionar publicacion y consumo. RabbitMQ publica sus puertos solo en localhost y persiste en `rabbitmq-data`; configura `RABBITMQ_USER` y `RABBITMQ_PASSWORD` en `.env`.
 
-Codigo en `services/student`, `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene su propio `Dockerfile` y su copia de la configuracion de telemetria.
+Codigo en `services/student`, `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene su propio `Dockerfile`, su copia de la configuracion de telemetria y su `compose.yaml` autonomo.
+
+### Organizacion de Compose
+
+`docker-compose.yml` solo incluye (`include:`) los demas archivos y forma un unico proyecto, con una sola red (`demo-observability-net`) y los mismos volumenes:
+
+| Archivo | Contenido | Responsable |
+|---|---|---|
+| `compose/infra.yml` | PostgreSQL, RabbitMQ y Redis (base de datos centralizada) | Plataforma |
+| `compose/observability.yml` | OTel Collector, Prometheus, cAdvisor, Loki, Tempo y Grafana | Plataforma |
+| `compose/gateway.yml` | Traefik y los middlewares compartidos | Plataforma |
+| `services/<servicio>/compose.yaml` | Contenedor, healthcheck y labels de Traefik del servicio | Equipo del servicio |
+
+Cada `compose.yaml` de servicio usa rutas relativas a su carpeta y solo depende de `postgres`, `redis`, `rabbitmq` y `otel-collector` por nombre. Para sacar un servicio a su propio repositorio, mueva su carpeta y reemplace su linea en `include:` por la URL de Git (ejemplo comentado en `docker-compose.yml`): `https://github.com/ORG/<repo>.git#main:compose.yaml`. La base de datos sigue centralizada en `compose/infra.yml`.
 
 ## Requisitos
 
@@ -237,7 +250,7 @@ Los servicios se publican mediante labels de Docker:
 
 ### Middlewares
 
-Se definen una sola vez por labels en `student-service` y los tres routers los aplican (los otros los referencian como `<nombre>@docker`):
+Se definen una sola vez por labels en el contenedor de `traefik` (`compose/gateway.yml`) y los routers de cada servicio los referencian como `<nombre>@docker`:
 
 | Middleware | Funcion | Valor por defecto |
 |---|---|---|
