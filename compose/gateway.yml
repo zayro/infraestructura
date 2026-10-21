@@ -23,8 +23,6 @@ services:
       - --accesslog.format=json
       - --log.level=INFO
       - --ping=true
-      # Autenticacion centralizada: todo router del entrypoint `web` exige un JWT valido validado por el plugin
-      - --entrypoints.web.http.middlewares=demo-jwt-auth@file
     ports:
       - "8000:80"
       - "8088:8080"

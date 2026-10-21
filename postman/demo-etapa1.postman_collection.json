@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "demo-etapa1-infraestructura",
     "name": "Demo Etapa 1 - Infraestructura Microservicios",
-    "description": "Colección para probar el stack Traefik → test-fastapi-service y test-fastify-service (items, eventos CRUD). Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik y los servicios estén healthy.",
+    "description": "Colección para validar la arquitectura de Microservicios, Traefik con dynamic-jwt-validation-middleware y Observabilidad.\n\nTodo el tráfico entra por Traefik ({{base_url}}), el cual valida el JWT en rutas protegidas e inyecta la identidad en cabeceras X-Auth-*, y permite el libre acceso sin token en rutas públicas (/api/test/public, /api/node/public).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -13,27 +13,27 @@
     {
       "key": "base_url",
       "value": "http://localhost:8000",
-      "description": "Entrada única HTTP: Traefik (puerto host 8000 → 80 del contenedor)"
+      "description": "Punto de entrada único: Traefik (puerto host 8000 -> 80 contenedor)"
     },
     {
       "key": "access_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXNlcnZpY2UiLCJyb2xlcyI6WyJzZXJ2aWNlIl0sImlhdCI6MTc5MjYxNzY4MSwiZXhwIjoxNzkyNzA0MDgxfQ.U3yBIqUbet40696SFz9aM2QCDNxYeS-PREAx5VY_u68",
-      "description": "JWT con rol service (demo-service)"
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXNlcnZpY2UiLCJlbWFpbCI6ImRlbW8tc2VydmljZUBkZW1vLmxvY2FsIiwicm9sZXMiOlsic2VydmljZSJdLCJpYXQiOjE3OTI2MjAzMTAsImV4cCI6MTc5MjcwNjcxMH0.4hQB9zdbPXKTNJ6BKxpghGPWQ7dK_vd-od058_67DVI",
+      "description": "JWT con identidad demo-service (rol: service)"
     },
     {
       "key": "admin_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLWFkbWluIiwicm9sZXMiOlsiYWRtaW4iLCJ1c2VyIl0sImlhdCI6MTc5MjYxNzY5OSwiZXhwIjoxNzkyNzA0MDk5fQ.rx-cGKXimDKSFrPEHJ6hDfYaXhdFN4jtD0Zh0iXjpBA",
-      "description": "JWT con roles admin y user (demo-admin)"
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLWFkbWluIiwiZW1haWwiOiJkZW1vLWFkbWluQGRlbW8ubG9jYWwiLCJyb2xlcyI6WyJhZG1pbiIsInVzZXIiXSwiaWF0IjoxNzkyNjIwMzEwLCJleHAiOjE3OTI3MDY3MTB9.LxyhkBosMdLOsUzcfMH_OmzCzhx1VTfT3bTSbxkyEBw",
+      "description": "JWT con identidad demo-admin (roles: admin, user)"
     },
     {
       "key": "user_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXVzZXIiLCJyb2xlcyI6WyJ1c2VyIl0sImlhdCI6MTc5MjYxNzY5OSwiZXhwIjoxNzkyNzA0MDk5fQ.M3vBMa1nZeJy1prYY4tq5M12hknAeXf1iafe8SaIzJk",
-      "description": "JWT con rol user (demo-user)"
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXVzZXIiLCJlbWFpbCI6ImRlbW8tdXNlckBkZW1vLmxvY2FsIiwicm9sZXMiOlsidXNlciJdLCJpYXQiOjE3OTI2MjAzMTAsImV4cCI6MTc5MjcwNjcxMH0.cYvVCuw8gfmMNDlI2QhRi1D2ZlNsNmudHttI5T_wyLE",
+      "description": "JWT con identidad demo-user (rol: user)"
     },
     {
       "key": "grafana_url",
       "value": "http://localhost:3000",
-      "description": "Grafana (admin/admin, configurable en .env)"
+      "description": "Grafana UI (admin/admin)"
     },
     {
       "key": "prometheus_url",
@@ -43,75 +43,444 @@
     {
       "key": "fastapi_event_id",
       "value": "",
-      "description": "event_id del último evento creado en FastAPI (lo rellena el test)"
+      "description": "event_id capturado en FastAPI"
     },
     {
       "key": "fastify_event_id",
       "value": "",
-      "description": "event_id del último evento creado en Fastify (lo rellena el test)"
+      "description": "event_id capturado en Fastify"
     },
     {
       "key": "trace_id",
       "value": "",
-      "description": "Último trace_id capturado (lo rellenan los tests automáticamente)"
+      "description": "Último trace_id capturado"
     }
   ],
   "item": [
     {
-      "name": "Autenticación y RBAC (Traefik Dynamic JWT)",
+      "name": "1. Autenticación y RBAC (Traefik Dynamic JWT)",
       "item": [
         {
-          "name": "Sin token → 401",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401 Unauthorized sin token', () => pm.response.to.have.status(401));"] } }],
-          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node", "host": ["{{base_url}}"], "path": ["api", "node"] } }
-        },
-        {
-          "name": "Token inválido o firma incorrecta → 401",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401 Unauthorized token inválido', () => pm.response.to.have.status(401));"] } }],
+          "name": "Ruta pública FastAPI (/api/test/public) → 200 sin token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK (sin token)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
+                  "pm.test('Mensaje publico', () => pm.expect(body.message).to.include('publico'));",
+                  "pm.test('Sin usuario en auth', () => pm.expect(body.auth.user).to.be.null);"
+                ]
+              }
+            }
+          ],
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "invalid.jwt.token", "type": "string" }] },
+            "auth": { "type": "noauth" },
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{base_url}}/api/node", "host": ["{{base_url}}"], "path": ["api", "node"] }
+            "url": { "raw": "{{base_url}}/api/test/public", "host": ["{{base_url}}"], "path": ["api", "test", "public"] },
+            "description": "Demuestra acceso público sin token JWT a través del router demo-test-fastapi-public de Traefik."
           }
         },
         {
-          "name": "Token servicio válido → 200",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK con token de servicio', () => pm.response.to.have.status(200));"] } }],
+          "name": "Ruta pública Fastify (/api/node/public) → 200 sin token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK (sin token)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
+                  "pm.test('Mensaje publico', () => pm.expect(body.message).to.include('publico'));",
+                  "pm.test('Sin usuario en auth', () => pm.expect(body.auth.user).to.be.null);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/node/public", "host": ["{{base_url}}"], "path": ["api", "node", "public"] },
+            "description": "Demuestra acceso público sin token JWT a través del router demo-test-fastify-public de Traefik."
+          }
+        },
+        {
+          "name": "Ruta protegida FastAPI (/api/test) sin token → 401",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401 Unauthorized sin token', () => pm.response.to.have.status(401));"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/test", "host": ["{{base_url}}"], "path": ["api", "test"] },
+            "description": "Verifica que la ruta protegida /api/test exija JWT y rechace llamadas sin token."
+          }
+        },
+        {
+          "name": "Ruta protegida Fastify (/api/node) sin token → 401",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401 Unauthorized sin token', () => pm.response.to.have.status(401));"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/node", "host": ["{{base_url}}"], "path": ["api", "node"] },
+            "description": "Verifica que la ruta protegida /api/node exija JWT y rechace llamadas sin token."
+          }
+        },
+        {
+          "name": "Token inválido o corrupto → 401 Unauthorized",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401 Unauthorized token inválido', () => pm.response.to.have.status(401));"] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "token.invalido.123", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/node", "host": ["{{base_url}}"], "path": ["api", "node"] },
+            "description": "Verifica que Traefik rechace tokens con firma criptográfica incorrecta."
+          }
+        },
+        {
+          "name": "Token servicio válido → 200 (captura identidad)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Retorna contexto auth', () => pm.expect(body.auth).to.be.an('object'));",
+                  "pm.test('Usuario es demo-service', () => pm.expect(body.auth.user).to.eql('demo-service'));",
+                  "pm.test('Email es demo-service@demo.local', () => pm.expect(body.auth.email).to.eql('demo-service@demo.local'));",
+                  "pm.test('Contiene rol service', () => pm.expect(body.auth.roles).to.include('service'));"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{base_url}}/api/node?delay_ms=50&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "50" }, { "key": "fail", "value": "0" }] }
+            "url": { "raw": "{{base_url}}/api/node?delay_ms=0&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "0" }, { "key": "fail", "value": "0" }] },
+            "description": "Prueba autenticación con cuenta de servicio y verifica que Fastify reciba user, email y roles."
           }
         },
         {
-          "name": "Token admin válido → 200",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK con token de admin', () => pm.response.to.have.status(200));"] } }],
+          "name": "Token admin válido → 200 (captura admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Usuario es demo-admin', () => pm.expect(body.auth.user).to.eql('demo-admin'));",
+                  "pm.test('Email es demo-admin@demo.local', () => pm.expect(body.auth.email).to.eql('demo-admin@demo.local'));",
+                  "pm.test('Contiene rol admin', () => pm.expect(body.auth.roles).to.include('admin'));"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{admin_token}}", "type": "string" }] },
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{base_url}}/api/node?delay_ms=50&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "50" }, { "key": "fail", "value": "0" }] }
+            "url": { "raw": "{{base_url}}/api/node?delay_ms=0&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "0" }, { "key": "fail", "value": "0" }] },
+            "description": "Prueba autenticación con token de administrador."
           }
         },
         {
-          "name": "Token user válido → 200",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK con token de user', () => pm.response.to.have.status(200));"] } }],
+          "name": "Token user válido → 200 (FastAPI captura user)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Usuario es demo-user', () => pm.expect(body.auth.user).to.eql('demo-user'));",
+                  "pm.test('Email es demo-user@demo.local', () => pm.expect(body.auth.email).to.eql('demo-user@demo.local'));",
+                  "pm.test('Contiene rol user', () => pm.expect(body.auth.roles).to.include('user'));"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_token}}", "type": "string" }] },
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{base_url}}/api/test?delay_ms=50&fail=0", "host": ["{{base_url}}"], "path": ["api", "test"], "query": [{ "key": "delay_ms", "value": "50" }, { "key": "fail", "value": "0" }] }
+            "url": { "raw": "{{base_url}}/api/test?delay_ms=0&fail=0", "host": ["{{base_url}}"], "path": ["api", "test"], "query": [{ "key": "delay_ms", "value": "0" }, { "key": "fail", "value": "0" }] },
+            "description": "Prueba autenticación con usuario estándar contra el servicio FastAPI."
           }
         }
       ]
     },
     {
-      "name": "Demo - Traefik → Fastify",
+      "name": "2. FastAPI - test-fastapi-service",
       "item": [
         {
-          "name": "Demo - flujo OK",
+          "name": "Público - /api/test/public (Sin Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
+                  "pm.test('auth.user es null', () => pm.expect(body.auth.user).to.be.null);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/test/public", "host": ["{{base_url}}"], "path": ["api", "test", "public"] },
+            "description": "Endpoint público sin autenticación."
+          }
+        },
+        {
+          "name": "Ping Protegido (con JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
+                  "pm.test('auth presente', () => pm.expect(body.auth.user).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/test", "host": ["{{base_url}}"], "path": ["api", "test"] },
+            "description": "Ping del servicio FastAPI vía Traefik con JWT."
+          }
+        },
+        {
+          "name": "Items - crear (registra created_by)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('registra created_by del JWT', () => pm.expect(body.created_by).to.eql('demo-service'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"fastapi-item-jwt\"}" },
+            "url": { "raw": "{{base_url}}/api/test/items", "host": ["{{base_url}}"], "path": ["api", "test", "items"] },
+            "description": "Crea un item en PostgreSQL e invalida Redis cache; registra created_by del usuario en el token."
+          }
+        },
+        {
+          "name": "Items - listar (Redis cache)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/items", "host": ["{{base_url}}"], "path": ["api", "test", "items"] } }
+        },
+        {
+          "name": "Events - crear (publica en RabbitMQ y registra published_by)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "const body = pm.response.json();",
+                  "pm.test('registra published_by del JWT', () => pm.expect(body.published_by).to.eql('demo-service'));",
+                  "pm.collectionVariables.set('fastapi_event_id', body.event_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"fastapi-event-jwt\"}" },
+            "url": { "raw": "{{base_url}}/api/test/events", "host": ["{{base_url}}"], "path": ["api", "test", "events"] },
+            "description": "Guarda el evento en PostgreSQL y lo publica en RabbitMQ (consumido por Fastify)."
+          }
+        },
+        {
+          "name": "Events - listar",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/events", "host": ["{{base_url}}"], "path": ["api", "test", "events"] } }
+        },
+        {
+          "name": "Events - obtener por id",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] } }
+        },
+        {
+          "name": "Events - actualizar",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"fastapi-event-updated\"}" },
+            "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] }
+          }
+        },
+        {
+          "name": "Events - eliminar",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 204', () => pm.response.to.have.status(204));"] } }],
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] } }
+        }
+      ]
+    },
+    {
+      "name": "3. Fastify - test-fastify-service",
+      "item": [
+        {
+          "name": "Público - /api/node/public (Sin Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
+                  "pm.test('auth.user es null', () => pm.expect(body.auth.user).to.be.null);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/node/public", "host": ["{{base_url}}"], "path": ["api", "node", "public"] },
+            "description": "Endpoint público sin autenticación."
+          }
+        },
+        {
+          "name": "Ping Protegido (con JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
+                  "pm.test('auth presente', () => pm.expect(body.auth.user).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/node?delay_ms=0&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "0" }, { "key": "fail", "value": "0" }] }
+          }
+        },
+        {
+          "name": "Items - crear (registra created_by)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('registra created_by del JWT', () => pm.expect(body.created_by).to.eql('demo-service'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"fastify-item-jwt\"}" },
+            "url": { "raw": "{{base_url}}/api/node/items", "host": ["{{base_url}}"], "path": ["api", "node", "items"] }
+          }
+        },
+        {
+          "name": "Items - listar (Redis cache)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/items", "host": ["{{base_url}}"], "path": ["api", "node", "items"] } }
+        },
+        {
+          "name": "Events - crear (registra published_by)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('registra published_by del JWT', () => pm.expect(body.published_by).to.eql('demo-service'));",
+                  "pm.collectionVariables.set('fastify_event_id', body.event.event_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"fastify-event-jwt\"}" },
+            "url": { "raw": "{{base_url}}/api/node/events", "host": ["{{base_url}}"], "path": ["api", "node", "events"] }
+          }
+        },
+        {
+          "name": "Events - listar (incluye consumidos de RabbitMQ)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/events", "host": ["{{base_url}}"], "path": ["api", "node", "events"] } }
+        },
+        {
+          "name": "Events - obtener por id",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] } }
+        },
+        {
+          "name": "Events - actualizar",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\": \"fastify-event-updated\"}" },
+            "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] }
+          }
+        },
+        {
+          "name": "Events - eliminar",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 204', () => pm.response.to.have.status(204));"] } }],
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] } }
+        }
+      ]
+    },
+    {
+      "name": "4. Observabilidad y Métricas",
+      "item": [
+        {
+          "name": "Demo - flujo OK (guarda trace_id)",
           "event": [
             {
               "listen": "test",
@@ -122,7 +491,7 @@
                   "const body = pm.response.json();",
                   "pm.test('ok=true', () => pm.expect(body.ok).to.eql(true));",
                   "pm.collectionVariables.set('trace_id', body.trace_id);",
-                  "console.log('trace_id:', body.trace_id, '→ búscalo en Grafana/Tempo');"
+                  "console.log('trace_id:', body.trace_id, '-> búscalo en Tempo');"
                 ]
               }
             }
@@ -135,16 +504,14 @@
               "host": ["{{base_url}}"],
               "path": ["api", "node"],
               "query": [
-                { "key": "delay_ms", "value": "150", "description": "Latencia simulada (0-2000 ms)" },
-                { "key": "fail", "value": "0", "description": "1 = fuerza error 500 en test-fastify-service" }
+                { "key": "delay_ms", "value": "150", "description": "Latencia simulada (ms)" },
+                { "key": "fail", "value": "0", "description": "1 = fuerza error 500" }
               ]
-            },
-            "description": "Equivalente a `make test-ok`. Flujo Traefik → test-fastify-service. Debe responder 200 con un trace_id (se guarda en la variable de colección `trace_id`)."
-          },
-          "response": []
+            }
+          }
         },
         {
-          "name": "Demo - error controlado (502)",
+          "name": "Demo - error controlado (500)",
           "event": [
             {
               "listen": "test",
@@ -153,9 +520,7 @@
                 "exec": [
                   "pm.test('status 500 (error simulado)', () => pm.response.to.have.status(500));",
                   "const body = pm.response.json();",
-                  "pm.test('ok=false', () => pm.expect(body.ok).to.eql(false));",
-                  "pm.collectionVariables.set('trace_id', body.trace_id);",
-                  "console.log('trace_id:', body.trace_id, '→ verifica la traza de error en Tempo');"
+                  "pm.collectionVariables.set('trace_id', body.trace_id);"
                 ]
               }
             }
@@ -171,13 +536,12 @@
                 { "key": "delay_ms", "value": "100" },
                 { "key": "fail", "value": "1" }
               ]
-            },
-            "description": "Equivalente a `make test-fail`. test-fastify-service devuelve 500. Útil para validar trazas y logs de error."
-          },
-          "response": []
+            }
+          }
         },
         {
           "name": "Demo - latencia alta (1200ms)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
           "request": {
             "method": "GET",
             "header": [],
@@ -189,150 +553,13 @@
                 { "key": "delay_ms", "value": "1200" },
                 { "key": "fail", "value": "0" }
               ]
-            },
-            "description": "Incrementa la latencia observada sin tocar infraestructura. Comprueba el histograma demo_http_request_duration_seconds en Prometheus y la duración del span en Tempo."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "FastAPI - test-fastapi-service",
-      "item": [
-        {
-          "name": "Ping",
-          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test", "host": ["{{base_url}}"], "path": ["api", "test"] }, "description": "Ping del servicio FastAPI vía Traefik." },
-          "response": []
+            }
+          }
         },
-        {
-          "name": "Items - crear",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"name\": \"postman-item\"}" },
-            "url": { "raw": "{{base_url}}/api/test/items", "host": ["{{base_url}}"], "path": ["api", "test", "items"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Items - listar (Redis cache)",
-          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/items", "host": ["{{base_url}}"], "path": ["api", "test", "items"] } },
-          "response": []
-        },
-        {
-          "name": "Events - crear (202, publica en RabbitMQ)",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 202', () => pm.response.to.have.status(202));", "pm.collectionVariables.set('fastapi_event_id', pm.response.json().event_id);"] } }],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"name\": \"postman-event\"}" },
-            "url": { "raw": "{{base_url}}/api/test/events", "host": ["{{base_url}}"], "path": ["api", "test", "events"] },
-            "description": "Guarda el evento en test_events y lo publica en RabbitMQ (lo consume test-fastify). Guarda event_id en `fastapi_event_id`."
-          },
-          "response": []
-        },
-        {
-          "name": "Events - listar",
-          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/events", "host": ["{{base_url}}"], "path": ["api", "test", "events"] } },
-          "response": []
-        },
-        {
-          "name": "Events - obtener por id",
-          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] } },
-          "response": []
-        },
-        {
-          "name": "Events - actualizar",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"name\": \"postman-event-updated\"}" },
-            "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Events - eliminar (204)",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 204', () => pm.response.to.have.status(204));"] } }],
-          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/test/events/{{fastapi_event_id}}", "host": ["{{base_url}}"], "path": ["api", "test", "events", "{{fastapi_event_id}}"] } },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Fastify - test-fastify-service",
-      "item": [
-        {
-          "name": "Ping (soporta ?fail=1 y ?delay_ms=)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{base_url}}/api/node?delay_ms=0&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "0" }, { "key": "fail", "value": "0", "description": "1 = fuerza error 500" }] }
-          },
-          "response": []
-        },
-        {
-          "name": "Items - crear",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"name\": \"postman-item\"}" },
-            "url": { "raw": "{{base_url}}/api/node/items", "host": ["{{base_url}}"], "path": ["api", "node", "items"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Items - listar (Redis cache)",
-          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/items", "host": ["{{base_url}}"], "path": ["api", "node", "items"] } },
-          "response": []
-        },
-        {
-          "name": "Events - crear",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('fastify_event_id', pm.response.json().event.event_id);"] } }],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"name\": \"postman-event\"}" },
-            "url": { "raw": "{{base_url}}/api/node/events", "host": ["{{base_url}}"], "path": ["api", "node", "events"] },
-            "description": "Guarda el evento en node_events. Guarda event_id en `fastify_event_id`."
-          },
-          "response": []
-        },
-        {
-          "name": "Events - listar (incluye los consumidos de RabbitMQ)",
-          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/events", "host": ["{{base_url}}"], "path": ["api", "node", "events"] } },
-          "response": []
-        },
-        {
-          "name": "Events - obtener por id",
-          "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] } },
-          "response": []
-        },
-        {
-          "name": "Events - actualizar",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"name\": \"postman-event-updated\"}" },
-            "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] }
-          },
-          "response": []
-        },
-        {
-          "name": "Events - eliminar",
-          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{base_url}}/api/node/events/{{fastify_event_id}}", "host": ["{{base_url}}"], "path": ["api", "node", "events", "{{fastify_event_id}}"] } },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Observabilidad",
-      "item": [
         {
           "name": "Buscar última traza en Tempo",
           "request": {
+            "auth": { "type": "noauth" },
             "method": "GET",
             "header": [],
             "url": {
@@ -340,57 +567,35 @@
               "host": ["localhost"],
               "port": "3200",
               "path": ["api", "traces", "{{trace_id}}"]
-            },
-            "description": "Recupera de Tempo la última traza generada (usa la variable trace_id guardada por los tests). Ejecuta antes 'Demo - flujo OK'."
-          },
-          "response": []
+            }
+          }
         },
         {
           "name": "Loki - ready",
           "request": {
+            "auth": { "type": "noauth" },
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:3100/ready",
-              "host": ["localhost"],
-              "port": "3100",
-              "path": ["ready"]
-            },
-            "description": "Estado de Loki. Esperado: 'ready'."
-          },
-          "response": []
+            "url": { "raw": "http://localhost:3100/ready", "host": ["localhost"], "port": "3100", "path": ["ready"] }
+          }
         },
         {
           "name": "Tempo - ready",
           "request": {
+            "auth": { "type": "noauth" },
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:3200/ready",
-              "host": ["localhost"],
-              "port": "3200",
-              "path": ["ready"]
-            },
-            "description": "Estado de Tempo. Esperado: 'ready'."
-          },
-          "response": []
+            "url": { "raw": "http://localhost:3200/ready", "host": ["localhost"], "port": "3200", "path": ["ready"] }
+          }
         },
         {
           "name": "Prometheus - targets activos",
           "request": {
+            "auth": { "type": "noauth" },
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "{{prometheus_url}}/api/v1/targets?state=active",
-              "host": ["{{prometheus_url}}"],
-              "path": ["api", "v1", "targets"],
-              "query": [
-                { "key": "state", "value": "active" }
-              ]
-            },
-            "description": "Lista los targets de scrapeo (traefik, test-fastapi-service, test-fastify-service) y su health. Todos deben estar 'up'."
-          },
-          "response": []
+            "url": { "raw": "{{prometheus_url}}/api/v1/targets?state=active", "host": ["{{prometheus_url}}"], "path": ["api", "v1", "targets"], "query": [{ "key": "state", "value": "active" }] }
+          }
         }
       ]
     }

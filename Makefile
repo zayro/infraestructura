@@ -41,6 +41,14 @@ test-fastapi:
 test-fastify:
 	curl -H "Authorization: Bearer $$($(TOKEN_CMD))" "http://localhost:8000/api/node?delay_ms=50&fail=0"
 
+test-public-fastapi:
+	curl -i "http://localhost:8000/api/test/public"
+
+test-public-fastify:
+	curl -i "http://localhost:8000/api/node/public"
+
+test-public: test-public-fastapi test-public-fastify
+
 test-unauthorized:
 	curl -i "http://localhost:8000/api/node"
 
