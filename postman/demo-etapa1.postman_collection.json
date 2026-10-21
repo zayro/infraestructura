@@ -5,7 +5,21 @@
     "description": "Colección para probar el stack Traefik → test-fastapi-service y test-fastify-service (items, eventos CRUD). Todo el tráfico entra por Traefik ({{base_url}}). Los microservicios no publican puertos al host.\n\nAntes de empezar: levanta el stack con `docker compose up -d --build` y verifica con `docker compose ps` que traefik y los servicios estén healthy.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
   "variable": [
+    {
+      "key": "keycloak_url",
+      "value": "http://localhost:7000",
+      "description": "Keycloak (emite los tokens que exige Traefik)"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "description": "JWT de Keycloak (lo rellena 'Keycloak - token usuario' o 'token servicio')"
+    },
     {
       "key": "base_url",
       "value": "http://localhost:8000",
@@ -38,6 +52,47 @@
     }
   ],
   "item": [
+    {
+      "name": "Keycloak - autenticación",
+      "item": [
+        {
+          "name": "Keycloak - token usuario (demo-user)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('access_token', pm.response.json().access_token);"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "client_id", "value": "demo-client" },
+              { "key": "grant_type", "value": "password" },
+              { "key": "username", "value": "demo-user" },
+              { "key": "password", "value": "demo" }
+            ] },
+            "url": { "raw": "{{keycloak_url}}/realms/demo/protocol/openid-connect/token", "host": ["{{keycloak_url}}"], "path": ["realms", "demo", "protocol", "openid-connect", "token"] }
+          }
+        },
+        {
+          "name": "Keycloak - token servicio (demo-service)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('access_token', pm.response.json().access_token);"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "client_id", "value": "demo-service" },
+              { "key": "client_secret", "value": "demo-service-secret" },
+              { "key": "grant_type", "value": "client_credentials" }
+            ] },
+            "url": { "raw": "{{keycloak_url}}/realms/demo/protocol/openid-connect/token", "host": ["{{keycloak_url}}"], "path": ["realms", "demo", "protocol", "openid-connect", "token"] }
+          }
+        },
+        {
+          "name": "Sin token → 401",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401', () => pm.response.to.have.status(401));"] } }],
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node", "host": ["{{base_url}}"], "path": ["api", "node"] } }
+        }
+      ]
+    },
     {
       "name": "Demo - Traefik → Fastify",
       "item": [

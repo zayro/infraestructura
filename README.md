@@ -11,7 +11,7 @@ Entorno de desarrollo autocontenido para validar:
 - Tempo para trazas;
 - Grafana para visualizacion.
 
-> Este demo es deliberadamente pequeno. RabbitMQ se usa solamente para demostrar comunicacion asincrona entre los servicios de prueba; no incluye Kafka, Kubernetes, Istio, Oracle ni autenticacion.
+> Este demo es deliberadamente pequeno. RabbitMQ se usa solamente para demostrar comunicacion asincrona entre los servicios de prueba; la seguridad se centraliza con Keycloak y no incluye Kafka, Kubernetes, Istio ni Oracle.
 
 ## Arquitectura
 
@@ -213,6 +213,7 @@ Las peticiones que superan el limite reciben HTTP 429.
 | Prometheus | http://localhost:9090 | Consulta de metricas |
 | Loki | http://localhost:3100/ready | Estado de Loki |
 | Tempo | http://localhost:3200/ready | Estado de Tempo |
+| Keycloak | http://localhost:7000 | Emisor de tokens y consola de seguridad (admin/admin) |
 
 Los microservicios no publican puertos hacia el host. Permanecen accesibles solamente dentro de `demo-observability-net`.
 
@@ -226,6 +227,35 @@ clave:   admin
 ```
 
 Cambielas en `.env` si el entorno se comparte.
+
+## Autenticacion centralizada (Keycloak)
+
+Toda peticion a `http://localhost:8000` exige un JWT valido de Keycloak. Los servicios no cambian: Traefik aplica el middleware `demo-auth` (forwardAuth) a nivel de entrypoint y lo valida `oauth2-proxy` (firma, expiracion, emisor y audiencia `demo-api`).
+
+```text
+cliente -> Keycloak (token) -> Traefik -> oauth2-proxy (valida) -> servicio
+                                  \-> X-Auth-Request-User / -Preferred-Username / -Groups
+```
+
+Realm `demo` (importado desde `keycloak/realm-demo.json`, base de datos `keycloak` en Postgres):
+
+| Cliente / usuario | Tipo | Uso |
+|---|---|---|
+| `demo-client` | publico | Usuarios (password grant en desarrollo) |
+| `demo-service` | confidencial (`DEMO_SERVICE_CLIENT_SECRET`) | Servicio a servicio (`client_credentials`) |
+| `demo-user` / `demo-admin` | usuarios (clave `DEMO_USER_PASSWORD`, por defecto `demo`) | Roles `user` / `user`+`admin` |
+
+```powershell
+# Token de usuario
+$t = (curl.exe -s -X POST http://localhost:7000/realms/demo/protocol/openid-connect/token -d "client_id=demo-client&grant_type=password&username=demo-user&password=demo" | ConvertFrom-Json).access_token
+curl.exe -i -H "Authorization: Bearer $t" http://localhost:8000/api/node   # 200
+curl.exe -i http://localhost:8000/api/node                                  # 401
+
+# Token de servicio
+curl.exe -s -X POST http://localhost:7000/realms/demo/protocol/openid-connect/token -d "client_id=demo-service&client_secret=demo-service-secret&grant_type=client_credentials"
+```
+
+Los roles llegan a los servicios en `X-Auth-Request-Groups`; el gateway solo autentica, la autorizacion por rol queda para cada servicio. Keycloak corre en `start-dev` sobre HTTP: en produccion requiere TLS, `start` y secretos propios. Keycloak se publica en el puerto 7000 del host.
 
 ## Traefik
 
@@ -440,7 +470,7 @@ docker compose down -v
 - No se cambia el contrato de `/api/demo`, `/health/live` ni `/health/ready`.
 - Los microservicios dejan de exponerse directamente al host para evitar bypass del API Gateway.
 - Los servicios de prueba (`test-fastapi-service`, `test-fastify-service`) solo existen para validar enrutado y observabilidad con distintos lenguajes.
-- Traefik aplica rate limit, limite de concurrencia y cabeceras de seguridad (middlewares `demo-*`). No se agrega autenticacion ni TLS.
+- Traefik aplica rate limit, limite de concurrencia y cabeceras de seguridad (middlewares `demo-*`). La autenticacion se centraliza con Keycloak + oauth2-proxy (ver seccion anterior). No se agrega TLS.
 - No se usa una base de datos: no existe una regla funcional ni un esquema suministrado que justifique agregarla.
 - No se usa RabbitMQ/Kafka: no existe todavia un flujo asincrono que lo requiera.
 - No se usa Kubernetes/Istio: corresponden a una evolucion posterior del laboratorio.

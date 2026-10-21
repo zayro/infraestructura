@@ -1,0 +1,219 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [2 0 R 4 0 R 6 0 R 8 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Length 1270 >>
+stream
+BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 744 Tm (INFRAESTRUCTURA) Tj ET
+BT /F2 31 Tf 102A43 rg 1 0 0 1 50 680 Tm (Una plataforma,) Tj ET
+BT /F2 31 Tf 102A43 rg 1 0 0 1 50 642 Tm (explicada para) Tj ET
+BT /F2 31 Tf 102A43 rg 1 0 0 1 50 604 Tm (dos audiencias.) Tj ET
+BT /F1 13 Tf 627D98 rg 1 0 0 1 50 560 Tm (Guia visual y minimalista del entorno de microservicios,) Tj ET
+BT /F1 13 Tf 627D98 rg 1 0 0 1 50 540 Tm (datos, mensajeria y observabilidad.) Tj ET
+D9F5EE rg 50 405 495 64 re f
+007C78 RG .5 w 50 469 m 545 469 l S
+BT /F2 18 Tf 102A43 rg 1 0 0 1 65 443 Tm (01) Tj ET
+BT /F1 9 Tf 243B53 rg 1 0 0 1 65 420 Tm (Vista sencilla) Tj ET
+BT /F2 18 Tf 102A43 rg 1 0 0 1 225 443 Tm (02) Tj ET
+BT /F1 9 Tf 243B53 rg 1 0 0 1 225 420 Tm (Vista tecnica) Tj ET
+BT /F2 18 Tf 102A43 rg 1 0 0 1 385 443 Tm (03) Tj ET
+BT /F1 9 Tf 243B53 rg 1 0 0 1 385 420 Tm (Operacion) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 50 370 Tm (Alcance: entorno autocontenido de desarrollo desplegado con Docker Compose.) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 50 357 Tm (No representa todavia una arquitectura de produccion.) Tj ET
+D9E2EC RG .5 w 50 48 m 545 48 l S
+BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
+BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (1) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 1 0 R >>
+endobj
+7 0 obj
+<< /Length 3145 >>
+stream
+BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (PARA USO GENERAL) Tj ET
+BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (La infraestructura en pocas palabras) Tj ET
+BT /F1 10.5 Tf 243B53 rg 1 0 0 1 50 680 Tm (Es el conjunto de piezas que permite que una aplicacion reciba solicitudes, guarde) Tj ET
+BT /F1 10.5 Tf 243B53 rg 1 0 0 1 50 665 Tm (informacion, procese tareas y muestre con claridad si todo esta funcionando.) Tj ET
+FFFFFF rg 50 500 235 108 re f
+D9E2EC RG .6 w 50 500 235 108 re S
+BT /F2 12 Tf 102A43 rg 1 0 0 1 64 582 Tm (Una puerta de entrada) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 64 563 Tm (Traefik recibe todas las solicitudes.) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 64 550 Tm (Es la recepcion: dirige cada pedido) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 64 537 Tm (al servicio correcto y evita) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 64 524 Tm (sobrecargas.) Tj ET
+FFFFFF rg 310 500 235 108 re f
+D9E2EC RG .6 w 310 500 235 108 re S
+BT /F2 12 Tf 102A43 rg 1 0 0 1 324 582 Tm (Dos servicios) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 563 Tm (La aplicacion se divide en dos) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 550 Tm (servicios de prueba. Asi se valida) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 537 Tm (que componentes distintos puedan) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 524 Tm (trabajar de forma coordinada.) Tj ET
+FFFFFF rg 50 365 235 108 re f
+D9E2EC RG .6 w 50 365 235 108 re S
+BT /F2 12 Tf 102A43 rg 1 0 0 1 64 447 Tm (Memoria y datos) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 64 428 Tm (PostgreSQL conserva la informacion) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 64 415 Tm (importante. Redis acelera consultas) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 64 402 Tm (frecuentes para que la respuesta sea) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 64 389 Tm (mas rapida.) Tj ET
+FFFFFF rg 310 365 235 108 re f
+D9E2EC RG .6 w 310 365 235 108 re S
+BT /F2 12 Tf 102A43 rg 1 0 0 1 324 447 Tm (Trabajo en segundo plano) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 428 Tm (RabbitMQ lleva mensajes entre) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 415 Tm (servicios. Esto permite continuar un) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 402 Tm (proceso sin obligar al usuario a) Tj ET
+BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 389 Tm (esperar.) Tj ET
+BT /F2 13 Tf 243B53 rg 1 0 0 1 50 320 Tm (Como viaja una solicitud) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 298 Tm (Persona o sistema -> puerta de entrada -> servicio adecuado -> datos o mensaje -> respuesta.) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 283 Tm (Mientras tanto, el entorno registra lo que ocurre para facilitar la operacion.) Tj ET
+D9E2EC RG .5 w 50 260 m 545 260 l S
+BT /F2 13 Tf 243B53 rg 1 0 0 1 50 234 Tm (Que se gana) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 212 Tm (Orden: cada componente tiene una responsabilidad clara. Velocidad: la cache evita trabajo) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 197 Tm (repetido. Confianza: metricas, registros y trazas ayudan a detectar y explicar incidentes.) Tj ET
+D9E2EC RG .5 w 50 48 m 545 48 l S
+BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
+BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (2) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 3 0 R >>
+endobj
+9 0 obj
+<< /Length 2944 >>
+stream
+BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (PARA PERSONAS TECNICAS) Tj ET
+BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (Arquitectura y flujos) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 680 Tm (Un unico proyecto Docker Compose organiza los componentes en la red interna) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 665 Tm (demo-observability-net. Los microservicios no exponen puertos al host.) Tj ET
+D9F5EE rg 50 570 495 46 re f
+D9E2EC RG .6 w 50 570 495 46 re S
+BT /F2 11 Tf 243B53 rg 1 0 0 1 70 595 Tm (Cliente) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 70 581 Tm (HTTP :8000) Tj ET
+EAF2F8 rg 50 524 495 46 re f
+D9E2EC RG .6 w 50 524 495 46 re S
+BT /F2 11 Tf 243B53 rg 1 0 0 1 70 549 Tm (Traefik) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 70 535 Tm (routing, rate limit, concurrencia, headers) Tj ET
+FFFFFF rg 50 478 495 46 re f
+D9E2EC RG .6 w 50 478 495 46 re S
+BT /F2 11 Tf 243B53 rg 1 0 0 1 70 503 Tm (FastAPI /api/test :8083     Fastify /api/node :8084) Tj ET
+F5F8FA rg 50 432 495 46 re f
+D9E2EC RG .6 w 50 432 495 46 re S
+BT /F2 11 Tf 243B53 rg 1 0 0 1 70 457 Tm (PostgreSQL datos persistentes   Redis cache-aside, TTL 30 s   RabbitMQ cola durable test.events) Tj ET
+BT /F2 13 Tf 243B53 rg 1 0 0 1 50 360 Tm (Reglas de exposicion) Tj ET
+BT /F1 9.7 Tf 243B53 rg 1 0 0 1 50 338 Tm (Solo Traefik publica la API en :8000. PostgreSQL, Redis y RabbitMQ publican sus puertos en) Tj ET
+BT /F1 9.7 Tf 243B53 rg 1 0 0 1 50 324 Tm (localhost para desarrollo; los servicios de aplicacion permanecen internos. El gateway) Tj ET
+BT /F1 9.7 Tf 243B53 rg 1 0 0 1 50 310 Tm (aplica 10 solicitudes/s por IP, rafaga de 20 y hasta 50 solicitudes simultaneas por defecto.) Tj ET
+102A43 rg 50 245 495 24 re f
+BT /F2 8.3 Tf FFFFFF rg 1 0 0 1 60 253 Tm (Componente) Tj ET
+BT /F2 8.3 Tf FFFFFF rg 1 0 0 1 190 253 Tm (Responsabilidad) Tj ET
+BT /F2 8.3 Tf FFFFFF rg 1 0 0 1 345 253 Tm (Detalle clave) Tj ET
+FFFFFF rg 50 210 495 35 re f
+D9E2EC RG .6 w 50 210 495 35 re S
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 60 227 Tm (Traefik) Tj ET
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 190 227 Tm (Gateway HTTP) Tj ET
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 345 227 Tm (Rutas /api/test y /api/node; middleware de seguridad.) Tj ET
+F5F8FA rg 50 175 495 35 re f
+D9E2EC RG .6 w 50 175 495 35 re S
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 60 192 Tm (PostgreSQL + Redis) Tj ET
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 190 192 Tm (Persistencia y cache) Tj ET
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 345 192 Tm (Volumenes persistentes; patron cache-aside.) Tj ET
+FFFFFF rg 50 140 495 35 re f
+D9E2EC RG .6 w 50 140 495 35 re S
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 60 157 Tm (RabbitMQ) Tj ET
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 190 157 Tm (Mensajeria asincrona) Tj ET
+BT /F1 8.1 Tf 243B53 rg 1 0 0 1 345 157 Tm (FastAPI publica; Fastify consume y confirma manualmente.) Tj ET
+D9E2EC RG .5 w 50 48 m 545 48 l S
+BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
+BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (3) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+11 0 obj
+<< /Length 3378 >>
+stream
+BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (OPERACION) Tj ET
+BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (Observar, diagnosticar, actuar) Tj ET
+BT /F1 10.5 Tf 243B53 rg 1 0 0 1 50 680 Tm (La observabilidad permite pasar de una alerta general a la causa concreta sin adivinar.) Tj ET
+D9F5EE rg 50 520 165 110 re f
+D9E2EC RG .6 w 50 520 165 110 re S
+BT /F2 12 Tf 102A43 rg 1 0 0 1 62 596 Tm (Metricas) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 62 580 Tm (Prometheus) Tj ET
+BT /F1 8.7 Tf 243B53 rg 1 0 0 1 62 559 Tm (Cuanto trafico, error) Tj ET
+BT /F1 8.7 Tf 243B53 rg 1 0 0 1 62 547 Tm (o latencia hay?) Tj ET
+D9F5EE rg 215 520 165 110 re f
+D9E2EC RG .6 w 215 520 165 110 re S
+BT /F2 12 Tf 102A43 rg 1 0 0 1 227 596 Tm (Trazas) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 227 580 Tm (OpenTelemetry -> Tempo) Tj ET
+BT /F1 8.7 Tf 243B53 rg 1 0 0 1 227 559 Tm (En que paso se demoro) Tj ET
+BT /F1 8.7 Tf 243B53 rg 1 0 0 1 227 547 Tm (o fallo la solicitud?) Tj ET
+D9F5EE rg 380 520 165 110 re f
+D9E2EC RG .6 w 380 520 165 110 re S
+BT /F2 12 Tf 102A43 rg 1 0 0 1 392 596 Tm (Logs) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 392 580 Tm (OpenTelemetry -> Loki) Tj ET
+BT /F1 8.7 Tf 243B53 rg 1 0 0 1 392 559 Tm (Que detalle explica el) Tj ET
+BT /F1 8.7 Tf 243B53 rg 1 0 0 1 392 547 Tm (evento?) Tj ET
+BT /F2 13 Tf 243B53 rg 1 0 0 1 50 478 Tm (Grafana: una vista unificada) Tj ET
+BT /F1 10 Tf 243B53 rg 1 0 0 1 50 456 Tm (Grafana conecta Prometheus, Loki y Tempo. El identificador trace_id une una respuesta, su) Tj ET
+BT /F1 10 Tf 243B53 rg 1 0 0 1 50 441 Tm (traza y sus logs: primero se detecta el problema en metricas, luego se ubica en la traza y) Tj ET
+BT /F1 10 Tf 243B53 rg 1 0 0 1 50 426 Tm (por ultimo se explica con registros.) Tj ET
+BT /F2 13 Tf 243B53 rg 1 0 0 1 50 378 Tm (Interfaces de desarrollo) Tj ET
+102A43 rg 50 340 495 23 re f
+BT /F2 8.2 Tf FFFFFF rg 1 0 0 1 60 348 Tm (API) Tj ET
+BT /F2 8.2 Tf FFFFFF rg 1 0 0 1 180 348 Tm (Grafana) Tj ET
+BT /F2 8.2 Tf FFFFFF rg 1 0 0 1 300 348 Tm (Prometheus) Tj ET
+BT /F2 8.2 Tf FFFFFF rg 1 0 0 1 420 348 Tm (Traefik) Tj ET
+FFFFFF rg 50 310 495 30 re f
+D9E2EC RG .6 w 50 310 495 30 re S
+BT /F1 8.2 Tf 243B53 rg 1 0 0 1 60 320 Tm (localhost:8000) Tj ET
+BT /F1 8.2 Tf 243B53 rg 1 0 0 1 180 320 Tm (localhost:3000) Tj ET
+BT /F1 8.2 Tf 243B53 rg 1 0 0 1 300 320 Tm (localhost:9090) Tj ET
+BT /F1 8.2 Tf 243B53 rg 1 0 0 1 420 320 Tm (localhost:8088/dashboard/) Tj ET
+BT /F2 13 Tf 243B53 rg 1 0 0 1 50 270 Tm (Limites actuales y siguiente paso) Tj ET
+F5F8FA rg 50 182 495 72 re f
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 232 Tm (Es un entorno de demostracion y desarrollo: el dashboard de Traefik usa) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 218 Tm (configuracion insegura, no hay autenticacion ni TLS, y los secretos parten de) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 204 Tm (valores de ejemplo. Para produccion, priorizar gestion de secretos, TLS,) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 190 Tm (autenticacion, endurecimiento de accesos, versionado inmutable de imagenes y alta) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 176 Tm (disponibilidad.) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 50 150 Tm (Fuente: configuracion y documentacion del repositorio de infraestructura.) Tj ET
+D9E2EC RG .5 w 50 48 m 545 48 l S
+BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
+BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (4) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000139 00000 n 
+0000000209 00000 n 
+0000000284 00000 n 
+0000001605 00000 n 
+0000001747 00000 n 
+0000004943 00000 n 
+0000005085 00000 n 
+0000008080 00000 n 
+0000008223 00000 n 
+0000011653 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R >>
+startxref
+11796
+%%EOF

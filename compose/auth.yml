@@ -1,0 +1,75 @@
+# Seguridad centralizada: Keycloak emite tokens (OIDC) y oauth2-proxy los valida para Traefik (forwardAuth).
+# Keycloak guarda sus datos en la base `keycloak` de PostgreSQL (ver postgres/init/keycloak.sql).
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    container_name: demo-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-demo}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-demo}
+      # URL publica fija (issuer de los tokens); el backchannel dinamico permite que oauth2-proxy lo use por la red Docker
+      KC_HOSTNAME: http://localhost:7000
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      DEMO_API_CLIENT_SECRET: ${DEMO_API_CLIENT_SECRET:-demo-api-secret}
+      DEMO_SERVICE_CLIENT_SECRET: ${DEMO_SERVICE_CLIENT_SECRET:-demo-service-secret}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-demo}
+    ports:
+      - "127.0.0.1:7000:8080"
+    volumes:
+      - ./keycloak/realm-demo.json:/opt/keycloak/data/import/realm-demo.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3;
+          grep -q '"status": "UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    networks:
+      - demo-net
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.9.0
+    container_name: demo-oauth2-proxy
+    environment:
+      OAUTH2_PROXY_PROVIDER: keycloak-oidc
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_CLIENT_ID: demo-api
+      OAUTH2_PROXY_CLIENT_SECRET: ${DEMO_API_CLIENT_SECRET:-demo-api-secret}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:-0123456789abcdef0123456789abcdef}
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_UPSTREAMS: static://202
+      # Solo valida bearer tokens de APIs: el issuer es el publico, las URLs de servidor van por la red Docker
+      OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "true"
+      OAUTH2_PROXY_OIDC_ISSUER_URL: http://localhost:7000/realms/demo
+      OAUTH2_PROXY_SKIP_OIDC_DISCOVERY: "true"
+      OAUTH2_PROXY_LOGIN_URL: http://localhost:7000/realms/demo/protocol/openid-connect/auth
+      OAUTH2_PROXY_REDEEM_URL: http://keycloak:8080/realms/demo/protocol/openid-connect/token
+      OAUTH2_PROXY_OIDC_JWKS_URL: http://keycloak:8080/realms/demo/protocol/openid-connect/certs
+      # Las cuentas de servicio no tienen email: se usa `sub` como identidad
+      OAUTH2_PROXY_OIDC_EMAIL_CLAIM: sub
+      OAUTH2_PROXY_OIDC_GROUPS_CLAIM: roles
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    networks:
+      - demo-net
+
+networks:
+  demo-net:
+    name: demo-observability-net
