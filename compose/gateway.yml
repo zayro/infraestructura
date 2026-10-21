@@ -17,7 +17,7 @@ services:
       - --accesslog.format=json
       - --log.level=INFO
       - --ping=true
-      # Autenticacion centralizada: todo router del entrypoint `web` exige un JWT valido de Keycloak
+      # Autenticacion centralizada: todo router del entrypoint `web` exige un JWT valido de ZITADEL
       - --entrypoints.web.http.middlewares=demo-auth@docker
     ports:
       - "8000:80"

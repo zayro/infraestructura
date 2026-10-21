@@ -11,7 +11,7 @@ Entorno de desarrollo autocontenido para validar:
 - Tempo para trazas;
 - Grafana para visualizacion.
 
-> Este demo es deliberadamente pequeno. RabbitMQ se usa solamente para demostrar comunicacion asincrona entre los servicios de prueba; la seguridad se centraliza con Keycloak y no incluye Kafka, Kubernetes, Istio ni Oracle.
+> Este demo es deliberadamente pequeno. RabbitMQ se usa solamente para demostrar comunicacion asincrona entre los servicios de prueba; la seguridad se centraliza con ZITADEL y no incluye Kafka, Kubernetes, Istio ni Oracle.
 
 ## Arquitectura
 
@@ -213,7 +213,7 @@ Las peticiones que superan el limite reciben HTTP 429.
 | Prometheus | http://localhost:9090 | Consulta de metricas |
 | Loki | http://localhost:3100/ready | Estado de Loki |
 | Tempo | http://localhost:3200/ready | Estado de Tempo |
-| Keycloak | http://localhost:7000 | Emisor de tokens y consola de seguridad (admin/admin) |
+| ZITADEL | http://localhost:7000 | Emisor de tokens, login y consola (`/ui/console`) y Management API |
 
 Los microservicios no publican puertos hacia el host. Permanecen accesibles solamente dentro de `demo-observability-net`.
 
@@ -228,34 +228,64 @@ clave:   admin
 
 Cambielas en `.env` si el entorno se comparte.
 
-## Autenticacion centralizada (Keycloak)
+## Autenticacion centralizada (ZITADEL)
 
-Toda peticion a `http://localhost:8000` exige un JWT valido de Keycloak. Los servicios no cambian: Traefik aplica el middleware `demo-auth` (forwardAuth) a nivel de entrypoint y lo valida `oauth2-proxy` (firma, expiracion, emisor y audiencia `demo-api`).
+Toda peticion a `http://localhost:8000` exige un JWT valido de ZITADEL. Los servicios no cambian: Traefik aplica el middleware `demo-auth` (forwardAuth) a nivel de entrypoint y lo valida `oauth2-proxy` (firma, expiracion, emisor y audiencia = id del proyecto `demo`).
 
 ```text
-cliente -> Keycloak (token) -> Traefik -> oauth2-proxy (valida) -> servicio
-                                  \-> X-Auth-Request-User / -Preferred-Username / -Groups
+cliente -> ZITADEL (token) -> Traefik -> oauth2-proxy (valida) -> servicio
+                                  \-> X-Auth-Request-User / -Groups (roles)
 ```
 
-Realm `demo` (importado desde `keycloak/realm-demo.json`, base de datos `keycloak` en Postgres):
+ZITADEL (`ghcr.io/zitadel/zitadel`) guarda sus datos en la base `zitadel` de Postgres y se publica en `http://localhost:7000` (login en `/ui/login`, consola en `/ui/console`, usuario `zitadel-admin@zitadel.localhost`, clave `ZITADEL_ADMIN_PASSWORD`, por defecto `Password1!`).
 
-| Cliente / usuario | Tipo | Uso |
-|---|---|---|
-| `demo-client` | publico | Usuarios (password grant en desarrollo) |
-| `demo-service` | confidencial (`DEMO_SERVICE_CLIENT_SECRET`) | Servicio a servicio (`client_credentials`) |
-| `demo-user` / `demo-admin` | usuarios (clave `DEMO_USER_PASSWORD`, por defecto `demo`) | Roles `user` / `user`+`admin` |
+### Todo se gestiona por API
+
+En el primer arranque ZITADEL crea una cuenta de maquina (`zitadel-admin-sa`) y escribe su PAT en `zitadel/bootstrap/admin.pat` (ignorado por git). Con ese token el contenedor `zitadel-setup` ejecuta [zitadel/provision.sh](zitadel/provision.sh) contra la Management API, de forma idempotente, y crea:
+
+| Recurso | Detalle |
+|---|---|
+| Proyecto `demo` | Su id va en el claim `aud`; oauth2-proxy lo exige |
+| Roles | `user`, `admin`, `service` |
+| App `demo-client` | OIDC publica con PKCE (callback de Postman `https://oauth.pstmn.io/v1/callback`) |
+| Usuarios `demo-user`, `demo-admin` | Clave `DEMO_USER_PASSWORD` (por defecto `Demo-User1!`); roles `user` / `user`+`admin` |
+| Cuenta `demo-service` | `client_credentials`; credenciales en `zitadel/bootstrap/demo-service.json` |
+| Action `flattenRoles` | Convierte los roles a un claim `roles` (lista) que llega como `X-Auth-Request-Groups` |
+
+Para gestionar usuarios, usa el mismo PAT contra la Management API:
 
 ```powershell
-# Token de usuario
-$t = (curl.exe -s -X POST http://localhost:7000/realms/demo/protocol/openid-connect/token -d "client_id=demo-client&grant_type=password&username=demo-user&password=demo" | ConvertFrom-Json).access_token
-curl.exe -i -H "Authorization: Bearer $t" http://localhost:8000/api/node   # 200
-curl.exe -i http://localhost:8000/api/node                                  # 401
+$pat = (Get-Content zitadel\bootstrap\admin.pat).Trim()
+$h = @("-H", "Authorization: Bearer $pat", "-H", "Content-Type: application/json")
 
-# Token de servicio
-curl.exe -s -X POST http://localhost:7000/realms/demo/protocol/openid-connect/token -d "client_id=demo-service&client_secret=demo-service-secret&grant_type=client_credentials"
+# Listar usuarios humanos
+'{"queries":[{"typeQuery":{"type":"TYPE_HUMAN"}}]}' | curl.exe -s -X POST http://localhost:7000/management/v1/users/_search @h -d '@-'
+
+# Crear usuario (devuelve userId)
+'{"userName":"ana","profile":{"firstName":"Ana","lastName":"Gomez"},"email":{"email":"ana@demo.local","isEmailVerified":true},"password":"Ana-Pass1!","passwordChangeRequired":false}' | curl.exe -s -X POST http://localhost:7000/management/v1/users/human/_import @h -d '@-'
+
+# Asignar rol (projectId en zitadel/bootstrap/project.json)
+'{"projectId":"<projectId>","roleKeys":["user"]}' | curl.exe -s -X POST http://localhost:7000/management/v1/users/<userId>/grants @h -d '@-'
+
+# Eliminar usuario
+curl.exe -s -X DELETE http://localhost:7000/management/v1/users/<userId> @h
 ```
 
-Los roles llegan a los servicios en `X-Auth-Request-Groups`; el gateway solo autentica, la autorizacion por rol queda para cada servicio. Keycloak corre en `start-dev` sobre HTTP: en produccion requiere TLS, `start` y secretos propios. Keycloak se publica en el puerto 7000 del host.
+### Obtener un token y llamar a la API
+
+```powershell
+$c  = Get-Content zitadel\bootstrap\demo-service.json | ConvertFrom-Json
+$pj = (Get-Content zitadel\bootstrap\project.json | ConvertFrom-Json).projectId
+$t  = (curl.exe -s -X POST http://localhost:7000/oauth/v2/token -d "grant_type=client_credentials&client_id=$($c.clientId)&client_secret=$($c.clientSecret)&scope=openid urn:zitadel:iam:org:project:id:${pj}:aud urn:zitadel:iam:org:projects:roles" | ConvertFrom-Json).access_token
+curl.exe -i -H "Authorization: Bearer $t" http://localhost:8000/api/node   # 200
+curl.exe -i http://localhost:8000/api/node                                  # 401
+```
+
+`make token` imprime ese mismo token. Los scopes `...:aud` (audiencia del proyecto) y `...:projects:roles` (roles) son obligatorios: sin ellos el token no pasa la validacion o llega sin roles.
+
+Los usuarios humanos obtienen el token con Authorization Code + PKCE (ZITADEL no admite password grant): en Postman, autorizacion OAuth 2.0 con la URL `http://localhost:7000/oauth/v2/authorize`, token `http://localhost:7000/oauth/v2/token`, `client_id` de `demoClientId` en `zitadel/bootstrap/project.json` y scopes `openid urn:zitadel:iam:org:project:id:<projectId>:aud urn:zitadel:iam:org:projects:roles`.
+
+El gateway solo autentica; la autorizacion por rol queda para cada servicio (leen `X-Auth-Request-Groups`). ZITADEL corre sin TLS (`tlsMode disabled`) y con claves de desarrollo: en produccion requiere HTTPS, `ZITADEL_MASTERKEY` propio y secretos fuera de los valores por defecto. El contenedor `zitadel-proxy` (nginx) solo reescribe el header `Host` para que oauth2-proxy lea las claves publicas por la red Docker, porque ZITADEL resuelve la instancia por dominio. Si `zitadel/bootstrap/` se borra con la base de datos intacta, hay que regenerar el PAT (recrear el volumen de Postgres).
 
 ## Traefik
 
@@ -470,7 +500,7 @@ docker compose down -v
 - No se cambia el contrato de `/api/demo`, `/health/live` ni `/health/ready`.
 - Los microservicios dejan de exponerse directamente al host para evitar bypass del API Gateway.
 - Los servicios de prueba (`test-fastapi-service`, `test-fastify-service`) solo existen para validar enrutado y observabilidad con distintos lenguajes.
-- Traefik aplica rate limit, limite de concurrencia y cabeceras de seguridad (middlewares `demo-*`). La autenticacion se centraliza con Keycloak + oauth2-proxy (ver seccion anterior). No se agrega TLS.
+- Traefik aplica rate limit, limite de concurrencia y cabeceras de seguridad (middlewares `demo-*`). La autenticacion se centraliza con ZITADEL + oauth2-proxy (ver seccion anterior). No se agrega TLS.
 - No se usa una base de datos: no existe una regla funcional ni un esquema suministrado que justifique agregarla.
 - No se usa RabbitMQ/Kafka: no existe todavia un flujo asincrono que lo requiera.
 - No se usa Kubernetes/Istio: corresponden a una evolucion posterior del laboratorio.

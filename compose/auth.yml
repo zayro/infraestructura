@@ -1,72 +1,113 @@
-# Seguridad centralizada: Keycloak emite tokens (OIDC) y oauth2-proxy los valida para Traefik (forwardAuth).
-# Keycloak guarda sus datos en la base `keycloak` de PostgreSQL (ver postgres/init/keycloak.sql).
+# Seguridad centralizada: ZITADEL emite tokens (OIDC) y oauth2-proxy los valida para Traefik (forwardAuth).
+# ZITADEL guarda sus datos en la base `zitadel` de PostgreSQL (la crea el propio ZITADEL en su primer arranque).
+# Usuarios, roles y clientes se gestionan por API: zitadel/provision.sh los crea de forma idempotente.
 services:
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.0.7
-    container_name: demo-keycloak
-    command: ["start-dev", "--import-realm"]
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v2.71.19
+    container_name: demo-zitadel
+    command: ["start-from-init", "--masterkeyFromEnv", "--tlsMode", "disabled"]
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER:-demo}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-demo}
-      # URL publica fija (issuer de los tokens); el backchannel dinamico permite que oauth2-proxy lo use por la red Docker
-      KC_HOSTNAME: http://localhost:7000
-      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
-      KC_HTTP_ENABLED: "true"
-      KC_HEALTH_ENABLED: "true"
-      DEMO_API_CLIENT_SECRET: ${DEMO_API_CLIENT_SECRET:-demo-api-secret}
-      DEMO_SERVICE_CLIENT_SECRET: ${DEMO_SERVICE_CLIENT_SECRET:-demo-service-secret}
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-demo}
+      ZITADEL_MASTERKEY: ${ZITADEL_MASTERKEY:-MasterkeyNeedsToHave32Characters}
+      # URL publica fija: es el issuer de los tokens y el dominio de la instancia
+      ZITADEL_EXTERNALDOMAIN: localhost
+      ZITADEL_EXTERNALPORT: "7000"
+      ZITADEL_EXTERNALSECURE: "false"
+      ZITADEL_TLS_ENABLED: "false"
+      ZITADEL_DATABASE_POSTGRES_HOST: postgres
+      ZITADEL_DATABASE_POSTGRES_PORT: "5432"
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${ZITADEL_DB_PASSWORD:-zitadel}
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: ${POSTGRES_USER:-demo}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-demo}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+      # Administrador humano de la consola (http://localhost:7000/ui/console)
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: ${ZITADEL_ADMIN_USER:-zitadel-admin}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: ${ZITADEL_ADMIN_PASSWORD:-Password1!}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: "false"
+      # Usuario de maquina con PAT: es la credencial con la que se gestiona todo por API
+      ZITADEL_FIRSTINSTANCE_PATPATH: /bootstrap/admin.pat
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: zitadel-admin-sa
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: Admin API
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2030-01-01T00:00:00Z"
     ports:
       - "127.0.0.1:7000:8080"
     volumes:
-      - ./keycloak/realm-demo.json:/opt/keycloak/data/import/realm-demo.json:ro
+      - ./zitadel/bootstrap:/bootstrap
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test:
-        - CMD-SHELL
-        - >-
-          exec 3<>/dev/tcp/127.0.0.1/9000;
-          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3;
-          grep -q '"status": "UP"' <&3
+      test: ["CMD", "/app/zitadel", "ready"]
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 60s
+      start_period: 30s
+    networks:
+      - demo-net
+
+  # Aprovisionamiento por API (proyecto, roles, clientes y usuarios). Termina al acabar.
+  zitadel-setup:
+    image: alpine:3.20
+    container_name: demo-zitadel-setup
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl jq >/dev/null && sh /provision.sh"]
+    environment:
+      ZITADEL_URL: http://zitadel:8080
+      ZITADEL_HOST: localhost:7000
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-Demo-User1!}
+    volumes:
+      - ./zitadel/provision.sh:/provision.sh:ro
+      - ./zitadel/bootstrap:/bootstrap
+    depends_on:
+      zitadel:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - demo-net
+
+  # Reescribe el Host para que oauth2-proxy pueda leer las claves publicas (JWKS) por la red Docker
+  zitadel-proxy:
+    image: nginx:1.27-alpine
+    container_name: demo-zitadel-proxy
+    volumes:
+      - ./zitadel/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      zitadel:
+        condition: service_healthy
     networks:
       - demo-net
 
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.9.0
     container_name: demo-oauth2-proxy
+    # client_id (= id del proyecto en ZITADEL, que va en `aud`) y el claim de roles los escribe zitadel-setup
+    command: ["--config=/bootstrap/oauth2-proxy.cfg"]
     environment:
-      OAUTH2_PROXY_PROVIDER: keycloak-oidc
+      OAUTH2_PROXY_PROVIDER: oidc
       OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
-      OAUTH2_PROXY_CLIENT_ID: demo-api
-      OAUTH2_PROXY_CLIENT_SECRET: ${DEMO_API_CLIENT_SECRET:-demo-api-secret}
+      OAUTH2_PROXY_CLIENT_SECRET: unused-bearer-validation-only
       OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:-0123456789abcdef0123456789abcdef}
       OAUTH2_PROXY_COOKIE_SECURE: "false"
       OAUTH2_PROXY_EMAIL_DOMAINS: "*"
       OAUTH2_PROXY_UPSTREAMS: static://202
       # Solo valida bearer tokens de APIs: el issuer es el publico, las URLs de servidor van por la red Docker
       OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "true"
-      OAUTH2_PROXY_OIDC_ISSUER_URL: http://localhost:7000/realms/demo
+      OAUTH2_PROXY_OIDC_ISSUER_URL: http://localhost:7000
       OAUTH2_PROXY_SKIP_OIDC_DISCOVERY: "true"
-      OAUTH2_PROXY_LOGIN_URL: http://localhost:7000/realms/demo/protocol/openid-connect/auth
-      OAUTH2_PROXY_REDEEM_URL: http://keycloak:8080/realms/demo/protocol/openid-connect/token
-      OAUTH2_PROXY_OIDC_JWKS_URL: http://keycloak:8080/realms/demo/protocol/openid-connect/certs
+      OAUTH2_PROXY_LOGIN_URL: http://localhost:7000/oauth/v2/authorize
+      OAUTH2_PROXY_REDEEM_URL: http://zitadel-proxy/oauth/v2/token
+      OAUTH2_PROXY_OIDC_JWKS_URL: http://zitadel-proxy/oauth/v2/keys
       # Las cuentas de servicio no tienen email: se usa `sub` como identidad
       OAUTH2_PROXY_OIDC_EMAIL_CLAIM: sub
-      OAUTH2_PROXY_OIDC_GROUPS_CLAIM: roles
       OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+    volumes:
+      - ./zitadel/bootstrap:/bootstrap:ro
     depends_on:
-      keycloak:
-        condition: service_healthy
+      zitadel-setup:
+        condition: service_completed_successfully
+      zitadel-proxy:
+        condition: service_started
     networks:
       - demo-net
 
