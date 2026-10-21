@@ -11,44 +11,24 @@
   },
   "variable": [
     {
-      "key": "zitadel_url",
-      "value": "http://localhost:7000",
-      "description": "ZITADEL (emite los tokens que exige Traefik y expone la Management API)"
-    },
-    {
-      "key": "zitadel_project_id",
-      "value": "",
-      "description": "projectId de zitadel/bootstrap/project.json"
-    },
-    {
-      "key": "zitadel_service_client_id",
-      "value": "demo-service",
-      "description": "clientId de zitadel/bootstrap/demo-service.json"
-    },
-    {
-      "key": "zitadel_service_client_secret",
-      "value": "",
-      "description": "clientSecret de zitadel/bootstrap/demo-service.json"
-    },
-    {
-      "key": "zitadel_admin_pat",
-      "value": "",
-      "description": "Contenido de zitadel/bootstrap/admin.pat (gestion de usuarios por API)"
-    },
-    {
-      "key": "zitadel_user_id",
-      "value": "",
-      "description": "userId del ultimo usuario creado (lo rellena el test)"
-    },
-    {
-      "key": "access_token",
-      "value": "",
-      "description": "JWT de ZITADEL (lo rellena 'ZITADEL - token servicio')"
-    },
-    {
       "key": "base_url",
       "value": "http://localhost:8000",
       "description": "Entrada única HTTP: Traefik (puerto host 8000 → 80 del contenedor)"
+    },
+    {
+      "key": "access_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXNlcnZpY2UiLCJyb2xlcyI6WyJzZXJ2aWNlIl0sImlhdCI6MTc5MjYxNzY4MSwiZXhwIjoxNzkyNzA0MDgxfQ.U3yBIqUbet40696SFz9aM2QCDNxYeS-PREAx5VY_u68",
+      "description": "JWT con rol service (demo-service)"
+    },
+    {
+      "key": "admin_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLWFkbWluIiwicm9sZXMiOlsiYWRtaW4iLCJ1c2VyIl0sImlhdCI6MTc5MjYxNzY5OSwiZXhwIjoxNzkyNzA0MDk5fQ.rx-cGKXimDKSFrPEHJ6hDfYaXhdFN4jtD0Zh0iXjpBA",
+      "description": "JWT con roles admin y user (demo-admin)"
+    },
+    {
+      "key": "user_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXVzZXIiLCJyb2xlcyI6WyJ1c2VyIl0sImlhdCI6MTc5MjYxNzY5OSwiZXhwIjoxNzkyNzA0MDk5fQ.M3vBMa1nZeJy1prYY4tq5M12hknAeXf1iafe8SaIzJk",
+      "description": "JWT con rol user (demo-user)"
     },
     {
       "key": "grafana_url",
@@ -78,70 +58,51 @@
   ],
   "item": [
     {
-      "name": "ZITADEL - autenticación y usuarios",
+      "name": "Autenticación y RBAC (Traefik Dynamic JWT)",
       "item": [
         {
-          "name": "ZITADEL - token servicio (demo-service)",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('access_token', pm.response.json().access_token);"] } }],
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
-            "body": { "mode": "urlencoded", "urlencoded": [
-              { "key": "grant_type", "value": "client_credentials" },
-              { "key": "client_id", "value": "{{zitadel_service_client_id}}" },
-              { "key": "client_secret", "value": "{{zitadel_service_client_secret}}" },
-              { "key": "scope", "value": "openid urn:zitadel:iam:org:project:id:{{zitadel_project_id}}:aud urn:zitadel:iam:org:projects:roles" }
-            ] },
-            "url": { "raw": "{{zitadel_url}}/oauth/v2/token", "host": ["{{zitadel_url}}"], "path": ["oauth", "v2", "token"] }
-          }
-        },
-        {
           "name": "Sin token → 401",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401', () => pm.response.to.have.status(401));"] } }],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401 Unauthorized sin token', () => pm.response.to.have.status(401));"] } }],
           "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node", "host": ["{{base_url}}"], "path": ["api", "node"] } }
         },
         {
-          "name": "API - listar usuarios humanos",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "name": "Token inválido o firma incorrecta → 401",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401 Unauthorized token inválido', () => pm.response.to.have.status(401));"] } }],
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{zitadel_admin_pat}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"queries\":[{\"typeQuery\":{\"type\":\"TYPE_HUMAN\"}}]}" },
-            "url": { "raw": "{{zitadel_url}}/management/v1/users/_search", "host": ["{{zitadel_url}}"], "path": ["management", "v1", "users", "_search"] }
-          }
-        },
-        {
-          "name": "API - crear usuario",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('zitadel_user_id', pm.response.json().userId);"] } }],
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{zitadel_admin_pat}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"userName\":\"ana\",\"profile\":{\"firstName\":\"Ana\",\"lastName\":\"Gomez\"},\"email\":{\"email\":\"ana@demo.local\",\"isEmailVerified\":true},\"password\":\"Ana-Pass1!\",\"passwordChangeRequired\":false}" },
-            "url": { "raw": "{{zitadel_url}}/management/v1/users/human/_import", "host": ["{{zitadel_url}}"], "path": ["management", "v1", "users", "human", "_import"] }
-          }
-        },
-        {
-          "name": "API - asignar rol user",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{zitadel_admin_pat}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\"projectId\":\"{{zitadel_project_id}}\",\"roleKeys\":[\"user\"]}" },
-            "url": { "raw": "{{zitadel_url}}/management/v1/users/{{zitadel_user_id}}/grants", "host": ["{{zitadel_url}}"], "path": ["management", "v1", "users", "{{zitadel_user_id}}", "grants"] }
-          }
-        },
-        {
-          "name": "API - eliminar usuario",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{zitadel_admin_pat}}", "type": "string" }] },
-            "method": "DELETE",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "invalid.jwt.token", "type": "string" }] },
+            "method": "GET",
             "header": [],
-            "url": { "raw": "{{zitadel_url}}/management/v1/users/{{zitadel_user_id}}", "host": ["{{zitadel_url}}"], "path": ["management", "v1", "users", "{{zitadel_user_id}}"] }
+            "url": { "raw": "{{base_url}}/api/node", "host": ["{{base_url}}"], "path": ["api", "node"] }
+          }
+        },
+        {
+          "name": "Token servicio válido → 200",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK con token de servicio', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/node?delay_ms=50&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "50" }, { "key": "fail", "value": "0" }] }
+          }
+        },
+        {
+          "name": "Token admin válido → 200",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK con token de admin', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{admin_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/node?delay_ms=50&fail=0", "host": ["{{base_url}}"], "path": ["api", "node"], "query": [{ "key": "delay_ms", "value": "50" }, { "key": "fail", "value": "0" }] }
+          }
+        },
+        {
+          "name": "Token user válido → 200",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK con token de user', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/test?delay_ms=50&fail=0", "host": ["{{base_url}}"], "path": ["api", "test"], "query": [{ "key": "delay_ms", "value": "50" }, { "key": "fail", "value": "0" }] }
           }
         }
       ]

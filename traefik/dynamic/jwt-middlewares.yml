@@ -1,0 +1,54 @@
+# Configuracion dinamica de Traefik para dynamic-jwt-validation-middleware (agilezebra/jwt-middleware)
+# Soporta Go templating para leer variables de entorno como JWT_SECRET
+
+http:
+  middlewares:
+    # 1. Autenticacion base: valida token firmado con JWT_SECRET, formato e inyecta headers upstream
+    demo-jwt-auth:
+      plugin:
+        jwt:
+          secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'
+          headerMap:
+            X-Auth-User: sub
+            X-Auth-Roles: roles
+          removeMissingHeaders: true
+
+    # 2. RBAC - Rol Admin requerido
+    demo-jwt-admin:
+      plugin:
+        jwt:
+          secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'
+          require:
+            roles:
+              - admin
+          headerMap:
+            X-Auth-User: sub
+            X-Auth-Roles: roles
+          removeMissingHeaders: true
+
+    # 3. RBAC - Rol Service requerido (ej. llamadas M2M)
+    demo-jwt-service:
+      plugin:
+        jwt:
+          secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'
+          require:
+            roles:
+              - service
+          headerMap:
+            X-Auth-User: sub
+            X-Auth-Roles: roles
+          removeMissingHeaders: true
+
+    # 4. RBAC - Rol User o Admin permitido
+    demo-jwt-user:
+      plugin:
+        jwt:
+          secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'
+          require:
+            roles:
+              - user
+              - admin
+          headerMap:
+            X-Auth-User: sub
+            X-Auth-Roles: roles
+          removeMissingHeaders: true

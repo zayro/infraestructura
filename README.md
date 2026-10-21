@@ -11,7 +11,7 @@ Entorno de desarrollo autocontenido para validar:
 - Tempo para trazas;
 - Grafana para visualizacion.
 
-> Este demo es deliberadamente pequeno. RabbitMQ se usa solamente para demostrar comunicacion asincrona entre los servicios de prueba; la seguridad se centraliza con ZITADEL y no incluye Kafka, Kubernetes, Istio ni Oracle.
+> Este demo es deliberadamente ligero. RabbitMQ se usa solamente para demostrar comunicacion asincrona entre los servicios de prueba; la seguridad y control de roles (RBAC) se gestionan directamente en Traefik mediante el plugin **dynamic-jwt-validation-middleware** (`agilezebra/jwt-middleware`), eliminando la complejidad de IdPs pesados.
 
 ## Arquitectura
 
@@ -78,6 +78,7 @@ Codigo en `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene
 | `compose/infra.yml` | PostgreSQL, RabbitMQ y Redis (base de datos centralizada) | Plataforma |
 | `compose/observability.yml` | OTel Collector, Prometheus, cAdvisor, Loki, Tempo y Grafana | Plataforma |
 | `compose/gateway.yml` | Traefik y los middlewares compartidos | Plataforma |
+| `traefik/dynamic/` | Middlewares dinámicos JWT y control de roles (RBAC) | Plataforma |
 | `services/<servicio>/compose.yaml` | Contenedor, healthcheck y labels de Traefik del servicio | Equipo del servicio |
 
 Cada `compose.yaml` de servicio usa rutas relativas a su carpeta y solo depende de `postgres`, `redis`, `rabbitmq` y `otel-collector` por nombre. `test-fastify-service` ya vive en su propio repositorio (`https://github.com/zayro/api-telemetria-fastify.git`) y se incluye por URL: Compose lo clona en su cache y construye la imagen desde alli, sin copia local. Para fijar una version, use un tag o commit: `...api-telemetria-fastify.git#v1.0.0:compose.yaml`. Para sacar otro servicio a su repositorio, repita el patron con su URL. La base de datos sigue centralizada en `compose/infra.yml`.
@@ -107,22 +108,65 @@ Logs principales:
 docker compose logs -f traefik test-fastapi-service test-fastify-service otel-collector
 ```
 
-## Pruebas funcionales
+## Autenticación y RBAC (Traefik Dynamic JWT Validation)
 
-### 1. Flujo correcto pasando obligatoriamente por Traefik
+La seguridad y control de acceso basado en roles (RBAC) se gestionan directamente en el API Gateway mediante el plugin **dynamic-jwt-validation-middleware** (`agilezebra/jwt-middleware`), eliminando la sobrecarga de ZITADEL y oauth2-proxy:
+
+- **Sin contenedores adicionales**: Ahorro de más de 1.5 GB de RAM al prescindir de Zitadel, su base de datos Postgres dedicada, el proxy Nginx y oauth2-proxy.
+- **Validación nativa en Traefik**: Valida la firma HMAC (`JWT_SECRET`), comprueba expiración (`exp`), evalúa roles requeridos (`roles`) e inyecta las cabeceras `X-Auth-User` y `X-Auth-Roles` aguas abajo.
+- **Middlewares configurados** en `traefik/dynamic/jwt-middlewares.yml`:
+  - `demo-jwt-auth@file`: Autenticación general en el entrypoint `web`.
+  - `demo-jwt-admin@file`: Requiere rol `admin`.
+  - `demo-jwt-service@file`: Requiere rol `service`.
+  - `demo-jwt-user@file`: Requiere rol `user` o `admin`.
+
+### Generación de tokens para pruebas
+
+Se incluye el script ligero `scripts/jwt_tool.py` (usando únicamente la librería estándar de Python, sin paquetes externos):
 
 ```bash
-curl "http://localhost:8000/api/node?delay_ms=150&fail=0"
+# Generar token para demo-service:
+python scripts/jwt_tool.py generate --sub demo-service --roles service
+# O con Makefile:
+make token
+
+# Generar token para demo-admin:
+make token-admin
+
+# Generar token para demo-user:
+make token-user
+```
+
+## Pruebas funcionales
+
+### 1. Petición sin token (rechazo esperado con 401 Unauthorized)
+
+```bash
+curl -i "http://localhost:8000/api/node"
+# Respuesta: HTTP/1.1 401 Unauthorized
+```
+
+### 2. Flujo correcto con Bearer token atravesando Traefik
+
+```bash
+TOKEN=$(make token)
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/node?delay_ms=150&fail=0"
+```
+
+O directamente con el target del Makefile:
+
+```bash
+make test-ok
 ```
 
 Flujo esperado:
 
 ```text
-curl
+curl (Authorization: Bearer <jwt>)
   |
   v
-Traefik :80 (publicado en :8000)
-  |
+Traefik :80 (valida firma HMAC + vigencia + roles)
+  |  (inyecta X-Auth-User y X-Auth-Roles)
   v
 test-fastify-service :8084
 ```
@@ -500,7 +544,7 @@ docker compose down -v
 - No se cambia el contrato de `/api/demo`, `/health/live` ni `/health/ready`.
 - Los microservicios dejan de exponerse directamente al host para evitar bypass del API Gateway.
 - Los servicios de prueba (`test-fastapi-service`, `test-fastify-service`) solo existen para validar enrutado y observabilidad con distintos lenguajes.
-- Traefik aplica rate limit, limite de concurrencia y cabeceras de seguridad (middlewares `demo-*`). La autenticacion se centraliza con ZITADEL + oauth2-proxy (ver seccion anterior). No se agrega TLS.
+- Traefik aplica rate limit, limite de concurrencia, cabeceras de seguridad y validacion dinamica de JWT con control de roles RBAC mediante el plugin `agilezebra/jwt-middleware`. Se elimina la sobrecarga de ZITADEL y oauth2-proxy. No se agrega TLS.
 - No se usa una base de datos: no existe una regla funcional ni un esquema suministrado que justifique agregarla.
 - No se usa RabbitMQ/Kafka: no existe todavia un flujo asincrono que lo requiera.
 - No se usa Kubernetes/Istio: corresponden a una evolucion posterior del laboratorio.

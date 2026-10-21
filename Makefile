@@ -1,4 +1,4 @@
-.PHONY: up down reset ps logs traefik-logs token test-ok test-fail
+.PHONY: up down reset ps logs traefik-logs token token-admin token-user test-ok test-unauthorized test-fail
 
 up:
 	docker compose up -d --build
@@ -18,15 +18,25 @@ logs:
 traefik-logs:
 	docker compose logs -f traefik
 
-BOOT = zitadel/bootstrap
-# Token de la cuenta de servicio demo-service (client_credentials); las credenciales las genera zitadel-setup
-TOKEN_CMD = curl -s -X POST http://localhost:7000/oauth/v2/token -d "grant_type=client_credentials&client_id=$$(sed -nE 's/.*"clientId":"([^"]+)".*/\1/p' $(BOOT)/demo-service.json)&client_secret=$$(sed -nE 's/.*"clientSecret":"([^"]+)".*/\1/p' $(BOOT)/demo-service.json)&scope=openid urn:zitadel:iam:org:project:id:$$(sed -nE 's/.*"projectId":"([^"]+)".*/\1/p' $(BOOT)/project.json):aud urn:zitadel:iam:org:projects:roles" | sed -E 's/.*"access_token":"([^"]+)".*/\1/'
+# Generacion ligera de tokens JWT para pruebas RBAC (zero dependencias externas)
+TOKEN_CMD = python scripts/jwt_tool.py generate --sub demo-service --roles service
+TOKEN_ADMIN_CMD = python scripts/jwt_tool.py generate --sub demo-admin --roles admin,user
+TOKEN_USER_CMD = python scripts/jwt_tool.py generate --sub demo-user --roles user
 
 token:
 	@$(TOKEN_CMD)
 
+token-admin:
+	@$(TOKEN_ADMIN_CMD)
+
+token-user:
+	@$(TOKEN_USER_CMD)
+
 test-ok:
 	curl -H "Authorization: Bearer $$($(TOKEN_CMD))" "http://localhost:8000/api/node?delay_ms=150&fail=0"
+
+test-unauthorized:
+	curl -i "http://localhost:8000/api/node"
 
 test-fail:
 	curl -i -H "Authorization: Bearer $$($(TOKEN_CMD))" "http://localhost:8000/api/node?delay_ms=100&fail=1"

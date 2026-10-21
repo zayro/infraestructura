@@ -4,11 +4,17 @@ services:
   traefik:
     image: traefik:v3.7.13
     container_name: demo-traefik
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-key-32-chars-long}
     command:
       - --api.dashboard=true
       - --api.insecure=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --experimental.plugins.jwt.modulename=github.com/agilezebra/jwt-middleware
+      - --experimental.plugins.jwt.version=v1.6.0
       - --entrypoints.web.address=:80
       - --entrypoints.metrics.address=:8082
       - --metrics.prometheus=true
@@ -17,20 +23,19 @@ services:
       - --accesslog.format=json
       - --log.level=INFO
       - --ping=true
-      # Autenticacion centralizada: todo router del entrypoint `web` exige un JWT valido de ZITADEL
-      - --entrypoints.web.http.middlewares=demo-auth@docker
+      # Autenticacion centralizada: todo router del entrypoint `web` exige un JWT valido validado por el plugin
+      - --entrypoints.web.http.middlewares=demo-jwt-auth@file
     ports:
       - "8000:80"
       - "8088:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
     depends_on:
       test-fastapi-service:
         condition: service_healthy
       test-fastify-service:
         condition: service_healthy
-      oauth2-proxy:
-        condition: service_started
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -39,8 +44,6 @@ services:
       start_period: 10s
     labels:
       - traefik.enable=true
-      - traefik.http.middlewares.demo-auth.forwardauth.address=http://oauth2-proxy:4180/oauth2/auth
-      - traefik.http.middlewares.demo-auth.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Preferred-Username,X-Auth-Request-Groups
       - traefik.http.middlewares.demo-ratelimit.ratelimit.average=${RATE_LIMIT_AVERAGE:-10}
       - traefik.http.middlewares.demo-ratelimit.ratelimit.period=1s
       - traefik.http.middlewares.demo-ratelimit.ratelimit.burst=${RATE_LIMIT_BURST:-20}

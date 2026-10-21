@@ -9,8 +9,7 @@ include:
     project_directory: .
   - path: compose/gateway.yml
     project_directory: .
-  - path: compose/auth.yml
-    project_directory: .
+  # compose/auth.yml eliminado: la autenticacion y roles se validan directamente en Traefik con agilezebra/jwt-middleware
   - https://github.com/zayro/api-telemetria-fastapi.git#main:compose.yaml
   # Servicio en su propio repositorio: Compose lo clona en su cache y construye desde alli.
   - https://github.com/zayro/api-telemetria-fastify.git#main:compose.yaml
