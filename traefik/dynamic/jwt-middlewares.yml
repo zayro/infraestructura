@@ -10,6 +10,7 @@ http:
           secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'
           headerMap:
             X-Auth-User: sub
+            X-Auth-Email: email
             X-Auth-Roles: roles
           removeMissingHeaders: true
 
@@ -23,6 +24,7 @@ http:
               - admin
           headerMap:
             X-Auth-User: sub
+            X-Auth-Email: email
             X-Auth-Roles: roles
           removeMissingHeaders: true
 
@@ -36,6 +38,7 @@ http:
               - service
           headerMap:
             X-Auth-User: sub
+            X-Auth-Email: email
             X-Auth-Roles: roles
           removeMissingHeaders: true
 
@@ -50,5 +53,6 @@ http:
               - admin
           headerMap:
             X-Auth-User: sub
+            X-Auth-Email: email
             X-Auth-Roles: roles
           removeMissingHeaders: true

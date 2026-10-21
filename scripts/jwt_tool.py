@@ -27,15 +27,19 @@ def b64url_decode(data_str: str) -> bytes:
 def create_token(
     sub: str,
     roles: list[str],
+    email: str | None = None,
     secret: str = DEFAULT_SECRET,
     iss: str = DEFAULT_ISSUER,
     ttl_seconds: int = 86400,
 ) -> str:
     now = int(time.time())
+    if email is None:
+        email = f"{sub}@demo.local"
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "iss": iss,
         "sub": sub,
+        "email": email,
         "roles": roles,
         "iat": now,
         "exp": now + ttl_seconds,
@@ -48,6 +52,8 @@ def create_token(
 
 
 def decode_token(token: str) -> dict:
+    if token == "-":
+        token = sys.stdin.read().strip()
     parts = token.strip().split(".")
     if len(parts) != 3:
         raise ValueError("Invalid JWT format (expected 3 parts)")
@@ -67,6 +73,7 @@ def main():
         default="service",
         help="Comma-separated roles (e.g. admin,user,service)",
     )
+    gen_parser.add_argument("--email", default=None, help="Email claim (defaults to sub@demo.local)")
     gen_parser.add_argument("--secret", default=DEFAULT_SECRET, help="HMAC secret key")
     gen_parser.add_argument("--iss", default=DEFAULT_ISSUER, help="Issuer claim")
     gen_parser.add_argument("--ttl", type=int, default=86400, help="TTL in seconds (default 1 day)")
@@ -80,10 +87,11 @@ def main():
         sub = getattr(args, "sub", "demo-service")
         roles_str = getattr(args, "roles", "service")
         roles = [r.strip() for r in roles_str.split(",") if r.strip()]
+        email = getattr(args, "email", None)
         secret = getattr(args, "secret", DEFAULT_SECRET)
         iss = getattr(args, "iss", DEFAULT_ISSUER)
         ttl = getattr(args, "ttl", 86400)
-        token = create_token(sub=sub, roles=roles, secret=secret, iss=iss, ttl_seconds=ttl)
+        token = create_token(sub=sub, roles=roles, email=email, secret=secret, iss=iss, ttl_seconds=ttl)
         print(token)
     elif args.cmd == "decode":
         info = decode_token(args.token)

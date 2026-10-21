@@ -35,6 +35,12 @@ token-user:
 test-ok:
 	curl -H "Authorization: Bearer $$($(TOKEN_CMD))" "http://localhost:8000/api/node?delay_ms=150&fail=0"
 
+test-fastapi:
+	curl -H "Authorization: Bearer $$($(TOKEN_ADMIN_CMD))" "http://localhost:8000/api/test?delay_ms=50&fail=0"
+
+test-fastify:
+	curl -H "Authorization: Bearer $$($(TOKEN_CMD))" "http://localhost:8000/api/node?delay_ms=50&fail=0"
+
 test-unauthorized:
 	curl -i "http://localhost:8000/api/node"
 
