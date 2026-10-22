@@ -19,6 +19,14 @@ services:
       - --entrypoints.metrics.address=:8082
       - --metrics.prometheus=true
       - --metrics.prometheus.entrypoint=metrics
+      # Trazas del gateway: OTLP/gRPC -> Collector -> Tempo.
+      # Es independiente del exporter Prometheus de metricas.
+      - --tracing=true
+      - --tracing.servicename=traefik
+      - --tracing.samplerate=${TRAEFIK_TRACING_SAMPLE_RATE:-1.0}
+      - --tracing.otlp.grpc=true
+      - --tracing.otlp.grpc.endpoint=otel-collector:4317
+      - --tracing.otlp.grpc.insecure=true
       - --accesslog=true
       - --accesslog.format=json
       - --log.level=INFO
@@ -30,6 +38,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
     depends_on:
+      otel-collector:
+        condition: service_started
       test-fastapi-service:
         condition: service_healthy
       test-fastify-service:

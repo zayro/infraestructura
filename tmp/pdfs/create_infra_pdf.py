@@ -72,7 +72,7 @@ story += [Table([[card('Una puerta de entrada', 'Traefik recibe todas las solici
 story += [Table([[card('Memoria y datos', 'PostgreSQL conserva la informacion importante. Redis acelera consultas frecuentes para que la respuesta sea mas rapida.'),
                  card('Trabajo en segundo plano', 'RabbitMQ lleva mensajes entre servicios. Esto permite continuar un proceso sin obligar al usuario a esperar.')]], colWidths=[84*mm,84*mm], style=[('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)])]
 story += [Spacer(1, 11*mm), P('Como viaja una solicitud', h2),
- P('Persona o sistema <b>-></b> puerta de entrada <b>-></b> servicio adecuado <b>-></b> datos o mensaje <b>-></b> respuesta. Mientras tanto, el entorno registra lo que ocurre para facilitar la operacion.', body),
+ P('Persona o sistema <b>-></b> puerta de entrada <b>-></b> servicio adecuado <b>-></b> datos o mensaje <b>-></b> respuesta. Las rutas protegidas incluyen un JWT y Traefik valida su firma y rol antes de enviarlas al servicio. Mientras tanto, el entorno registra lo que ocurre para facilitar la operacion.', body),
  HRFlowable(width='100%', thickness=.7, color=LINE, spaceBefore=8, spaceAfter=10), P('Que se gana', h2),
  P('<b>Orden:</b> cada componente tiene una responsabilidad clara. &nbsp;&nbsp; <b>Velocidad:</b> la cache evita trabajo repetido. &nbsp;&nbsp; <b>Confianza:</b> metricas, registros y trazas ayudan a detectar y explicar incidentes.', body)]
 story.append(PageBreak())
@@ -81,11 +81,11 @@ story.append(PageBreak())
 story += [P('PARA PERSONAS TECNICAS', kicker), P('Arquitectura y flujos', h1), P('Un unico proyecto Docker Compose organiza los componentes en la red interna <font name="Courier">demo-observability-net</font>. Los microservicios no exponen puertos al host.', body)]
 diagram = Table([
  [P('<b>Cliente</b><br/><font size="8">HTTP :8000</font>', cardbody)],
- [P('<b>Traefik</b><br/><font size="8">routing, rate limit, concurrencia, headers</font>', cardbody)],
+ [P('<b>Traefik</b><br/><font size="8">routing, JWT/RBAC, rate limit, concurrencia, headers</font>', cardbody)],
  [P('<b>FastAPI</b> <font size="8">/api/test :8083</font> &nbsp;&nbsp;&nbsp; <b>Fastify</b> <font size="8">/api/node :8084</font>', cardbody)],
  [P('<b>PostgreSQL</b> <font size="8">datos persistentes</font> &nbsp;&nbsp; <b>Redis</b> <font size="8">cache-aside, TTL 30 s</font> &nbsp;&nbsp; <b>RabbitMQ</b> <font size="8">cola durable test.events</font>', cardbody)],
 ], colWidths=[168*mm], style=[('BACKGROUND',(0,0),(-1,0),MINT),('BACKGROUND',(0,1),(-1,1),HexColor('#EAF2F8')),('BACKGROUND',(0,2),(-1,2),WHITE),('BACKGROUND',(0,3),(-1,3),PALE),('BOX',(0,0),(-1,-1),.7,LINE),('INNERGRID',(0,0),(-1,-1),.6,LINE),('ALIGN',(0,0),(-1,-1),'CENTER'),('VALIGN',(0,0),(-1,-1),'MIDDLE'),('TOPPADDING',(0,0),(-1,-1),9),('BOTTOMPADDING',(0,0),(-1,-1),9)])
-story += [diagram, Spacer(1,8*mm), P('Reglas de exposicion', h2), P('Solo Traefik publica la API en <font name="Courier">:8000</font>. PostgreSQL, Redis y RabbitMQ publican sus puertos en localhost para desarrollo; los servicios de aplicacion permanecen internos. El gateway aplica 10 solicitudes/s por IP, rafaga de 20 y hasta 50 solicitudes simultaneas por defecto.', body)]
+story += [diagram, Spacer(1,8*mm), P('Reglas de exposicion', h2), P('Solo Traefik publica la API en <font name="Courier">:8000</font>. PostgreSQL, Redis y RabbitMQ publican sus puertos en localhost para desarrollo; los servicios de aplicacion permanecen internos. Las rutas protegidas usan JWT firmados con un secreto HMAC local; no se despliega un proveedor de identidad. El gateway aplica 10 solicitudes/s por IP, rafaga de 20 y hasta 50 solicitudes simultaneas por defecto.', body)]
 data = [[P('Componente',tablehead), P('Responsabilidad',tablehead), P('Detalle clave',tablehead)],
  [P('Traefik',tablecell),P('Gateway HTTP',tablecell),P('Rutas /api/test y /api/node; middleware de seguridad.',tablecell)],
  [P('PostgreSQL + Redis',tablecell),P('Persistencia y cache',tablecell),P('Volumenes persistentes; patron cache-aside.',tablecell)],
@@ -101,7 +101,7 @@ story += [Table(obs, colWidths=[56*mm]*3, style=[('BACKGROUND',(0,0),(-1,0),MINT
 links = [[P('API',tablehead),P('Grafana',tablehead),P('Prometheus',tablehead),P('Traefik',tablehead)],
          [P('localhost:8000',tablecell),P('localhost:3000',tablecell),P('localhost:9090',tablecell),P('localhost:8088/dashboard/',tablecell)]]
 story += [Table(links, colWidths=[34*mm,39*mm,42*mm,53*mm], style=[('BACKGROUND',(0,0),(-1,0),NAVY),('GRID',(0,0),(-1,-1),.45,LINE),('ALIGN',(0,0),(-1,-1),'CENTER'),('TOPPADDING',(0,0),(-1,-1),7),('BOTTOMPADDING',(0,0),(-1,-1),7)])]
-story += [Spacer(1,10*mm), P('Limites actuales y siguiente paso', h2), P('Es un entorno de demostracion y desarrollo: el dashboard de Traefik usa configuracion insegura, no hay autenticacion ni TLS, y los secretos parten de valores de ejemplo. Para produccion, priorizar gestion de secretos, TLS, autenticacion, endurecimiento de accesos, versionado inmutable de imagenes y alta disponibilidad.', body), Spacer(1,6*mm), P('Fuente: configuracion y documentacion del repositorio de infraestructura.', small)]
+story += [Spacer(1,10*mm), P('Limites actuales y siguiente paso', h2), P('Es un entorno de demostracion y desarrollo: Traefik valida JWT de prueba generados localmente, el dashboard usa configuracion insegura, no hay TLS y los secretos parten de valores de ejemplo. Para produccion, priorizar gestion de secretos, TLS, integracion con un proveedor de identidad si se requiere, endurecimiento de accesos, versionado inmutable de imagenes y alta disponibilidad.', body), Spacer(1,6*mm), P('Fuente: configuracion y documentacion del repositorio de infraestructura.', small)]
 
 doc.build(story, onFirstPage=footer, onLaterPages=footer)
 print(OUT)

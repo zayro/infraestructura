@@ -1,104 +1,77 @@
 # Demo Etapa 1 - Microservicios, Traefik y observabilidad con Docker Compose
 
-Entorno de desarrollo autocontenido para validar:
+Entorno autocontenido de desarrollo para validar un API Gateway, dos microservicios HTTP, datos, mensajeria y observabilidad.
 
-- Traefik como punto unico de entrada / API Gateway ligero;
-- microservicios HTTP (servicios de prueba en FastAPI y Fastify);
-- trazas, metricas y logs de cada servicio, escritos en distintos lenguajes (Python/FastAPI y Node.js/Fastify);
-- OpenTelemetry Collector;
-- Prometheus para metricas;
-- Loki para logs;
-- Tempo para trazas;
-- Grafana para visualizacion.
+- Traefik como punto unico de entrada.
+- Servicios de prueba en FastAPI y Fastify.
+- PostgreSQL, Redis y RabbitMQ.
+- OpenTelemetry Collector, Prometheus, Loki, Tempo y Grafana.
+- JWT y RBAC validados directamente en Traefik.
 
-> Este demo es deliberadamente ligero. RabbitMQ se usa solamente para demostrar comunicacion asincrona entre los servicios de prueba; la seguridad y control de roles (RBAC) se gestionan directamente en Traefik mediante el plugin **dynamic-jwt-validation-middleware** (`agilezebra/jwt-middleware`), eliminando la complejidad de IdPs pesados.
+> El proyecto no despliega un proveedor de identidad. Los JWT para desarrollo se generan localmente con `scripts/jwt_tool.py` y Traefik valida su firma HMAC y sus roles.
 
 ## Arquitectura
 
 ```text
 Cliente
   |
-  | HTTP :8000 (host) -> :80 (contenedor)
+  | HTTP :8000
   v
-Traefik  (rate limit + limite de concurrencia + cabeceras de seguridad)
-  |  reverse proxy / routing por PathPrefix
-  |-- /api/test --> test-fastapi-service :8083 (solo red Docker)
-  |-- /api/node --> test-fastify-service :8084 (solo red Docker)
+Traefik (JWT/RBAC, rate limit, concurrencia, headers)
+  |-- /api/test --> test-fastapi-service :8083
+  `-- /api/node --> test-fastify-service :8084
 
-test-fastapi-service
-  `-- AMQP: cola durable test.events --> RabbitMQ --> test-fastify-service
-                                               `--> persiste eventos en PostgreSQL
+FastAPI -- eventos AMQP --> RabbitMQ --> Fastify --> PostgreSQL
+   |                         |
+   `-- PostgreSQL + Redis ---'
 
-Traefik
-  `-- /metrics :8082 -------------> Prometheus
-
-Cada microservicio
-  |-- /metrics --------------------> Prometheus
-  |-- OTLP traces/logs ------------> OpenTelemetry Collector
-                                        |-- traces --> Tempo
-                                        `-- logs ----> Loki
-
-Prometheus + Loki + Tempo ----------> Grafana
+Servicios -- metricas --> Prometheus --\
+Servicios -- OTLP -------> Collector --> Tempo + Loki --> Grafana
+Traefik -- metricas ------------------/
 ```
 
-### Rol de cada componente
+Todos los contenedores comparten la red Docker `demo-observability-net`. Los microservicios no publican puertos al host.
 
-- `traefik`: API gateway. Es el unico punto HTTP publicado para las APIs, decide a que servicio enrutar y aplica rate limit, limite de concurrencia y cabeceras de seguridad.
-- `test-fastapi-service` y `test-fastify-service`: microservicios (ver tabla).
-- `rabbitmq`: broker AMQP interno para el ejemplo asincrono; los servicios conservan sus rutas HTTP y RabbitMQ publica AMQP (5672) y la consola de gestión (15672) solo en `127.0.0.1`.
+## Componentes
 
-El antiguo `gateway-service` y el `student-service` (Flask, catch-all `/`) se eliminaron: Traefik ya cumple el papel de gateway y los servicios de prueba cubren el demo.
-
-### Servicios
-
-| Servicio | Tecnologia | Puerto interno | Ruta en Traefik | Endpoints |
-|---|---|---|---|---|
-| `test-fastapi-service` | Python 3.12 / FastAPI + Uvicorn | 8083 | `/api/test` | `/api/test`, `/api/test/items`, `/api/test/events` (CRUD) |
-| `test-fastify-service` | Node.js 22 / Fastify 5 | 8084 | `/api/node` | `/api/node`, `/api/node/items`, `/api/node/events` (CRUD) |
-| `postgres` | PostgreSQL 17 | 5432 | `127.0.0.1:5432` | volumen `postgres-data` |
-| `redis` | Redis 7 (AOF) | 6379 | `127.0.0.1:6379` | volumen `redis-data` |
-| `rabbitmq` | RabbitMQ 4.1.5 | 5672 / 15672 | `127.0.0.1:5672` / `127.0.0.1:15672` | volumen `rabbitmq-data` |
-
-Todos exponen tambien `/metrics`, `/health/live` y `/health/ready`, envian trazas y logs por OTLP al collector y publican las metricas `demo_http_requests_total` y `demo_http_request_duration_seconds`.
-
-Los servicios de prueba aceptan los parametros `delay_ms` (0-2000, latencia simulada) y `fail=1` (error 500 simulado). No hay ruta catch-all: las rutas no definidas responden 404 desde Traefik.
-
-Los servicios de prueba tambien exponen un ejemplo CRUD con PostgreSQL y cache Redis (patron cache-aside, TTL 30 s): `/api/test/items` (FastAPI, tabla `test_items`) y `/api/node/items` (Fastify, tabla `node_items`). `postgres` y `redis` solo son accesibles desde la red Docker; sus datos persisten en los volumenes `postgres-data` y `redis-data`. Las credenciales se configuran con `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB` (ver `.env.example`; evita caracteres especiales en la contrasena porque se usa dentro de una URL).
-
-RabbitMQ conecta los servicios de forma asincrona: FastAPI publica eventos persistentes en la cola durable `test.events`; Fastify los consume con confirmacion manual, los almacena idempotentemente en `node_events` y permite gestionarlos por `/api/node/events` (CRUD: `POST` crea un registro directo en la tabla sin publicarlo en RabbitMQ, `GET` lista, `GET/PUT/DELETE /api/node/events/{event_id}` consultan, actualizan o eliminan; `404` si no existe y `400` si el id no es UUID o el nombre es invalido). El `traceparent` se propaga en los headers del mensaje para correlacionar publicacion y consumo. RabbitMQ publica sus puertos solo en localhost y persiste en `rabbitmq-data`; configura `RABBITMQ_USER` y `RABBITMQ_PASSWORD` en `.env`.
-
-Codigo en `services/test-fastapi` y `services/test-fastify`. Cada servicio tiene su propio `Dockerfile`, su copia de la configuracion de telemetria y su `compose.yaml` autonomo.
-
-### Organizacion de Compose
-
-`docker-compose.yml` solo incluye (`include:`) los demas archivos y forma un unico proyecto, con una sola red (`demo-observability-net`) y los mismos volumenes:
-
-| Archivo | Contenido | Responsable |
+| Componente | Responsabilidad | Exposicion |
 |---|---|---|
-| `compose/infra.yml` | PostgreSQL, RabbitMQ y Redis (base de datos centralizada) | Plataforma |
-| `compose/observability.yml` | OTel Collector, Prometheus, cAdvisor, Loki, Tempo y Grafana | Plataforma |
-| `compose/gateway.yml` | Traefik y los middlewares compartidos | Plataforma |
-| `traefik/dynamic/` | Middlewares dinámicos JWT y control de roles (RBAC) | Plataforma |
-| `services/<servicio>/compose.yaml` | Contenedor, healthcheck y labels de Traefik del servicio | Equipo del servicio |
+| `traefik` | Gateway HTTP, enrutado, JWT/RBAC, rate limit y headers | `:8000`, dashboard `:8088` |
+| `test-fastapi-service` | API Python/FastAPI y publicador AMQP | Interna, `:8083` |
+| `test-fastify-service` | API Node/Fastify y consumidor AMQP | Interna, `:8084` |
+| `postgres` | Persistencia de items y eventos | `127.0.0.1:5432` |
+| `redis` | Cache-aside con TTL de 30 s | `127.0.0.1:6379` |
+| `rabbitmq` | Cola durable `test.events` | `127.0.0.1:5672`, consola `:15672` |
+| `otel-collector` | Recibe OTLP y reenvia senales | Interna |
+| `prometheus` | Metricas | `:9090` |
+| `loki` / `tempo` | Logs / trazas | `:3100` / `:3200` |
+| `grafana` | Visualizacion unificada | `:3000` |
 
-Cada `compose.yaml` de servicio usa rutas relativas a su carpeta y solo depende de `postgres`, `redis`, `rabbitmq` y `otel-collector` por nombre. `test-fastify-service` ya vive en su propio repositorio (`https://github.com/zayro/api-telemetria-fastify.git`) y se incluye por URL: Compose lo clona en su cache y construye la imagen desde alli, sin copia local. Para fijar una version, use un tag o commit: `...api-telemetria-fastify.git#v1.0.0:compose.yaml`. Para sacar otro servicio a su repositorio, repita el patron con su URL. La base de datos sigue centralizada en `compose/infra.yml`.
+Los dos servicios exponen `/metrics`, `/health/live` y `/health/ready` dentro de la red Docker. Las APIs incluyen CRUD de items, cache Redis y un flujo asincrono FastAPI -> RabbitMQ -> Fastify.
 
-## Requisitos
+## Organizacion de Compose
 
-- Docker Engine o Docker Desktop
-- Docker Compose v2 (`docker compose`)
-- Puertos libres: 8000, 3000, 3100, 3200, 8088 y 9090
+`docker-compose.yml` compone una unica plataforma:
 
-## Inicio
+| Archivo o directorio | Contenido |
+|---|---|
+| `compose/infra.yml` | PostgreSQL, RabbitMQ y Redis |
+| `compose/gateway.yml` | Traefik y sus middlewares compartidos |
+| `compose/observability.yml` | Collector, Prometheus, cAdvisor, Loki, Tempo y Grafana |
+| `traefik/dynamic/jwt-middlewares.yml` | Middlewares JWT/RBAC de Traefik |
+| `services/<servicio>/compose.yaml` | Contenedor, healthcheck y routers de cada servicio |
+
+El servicio Fastify se incluye desde `https://github.com/zayro/api-telemetria-fastify.git#main:compose.yaml`; Compose lo clona en su cache. Para fijar una version, sustituya `main` por un tag o commit.
+
+## Requisitos e inicio
+
+- Docker Engine o Docker Desktop.
+- Docker Compose v2.
+- Puertos libres: 8000, 3000, 3100, 3200, 8088 y 9090.
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
-```
-
-Estado:
-
-```bash
 docker compose ps
 ```
 
@@ -108,483 +81,166 @@ Logs principales:
 docker compose logs -f traefik test-fastapi-service test-fastify-service otel-collector
 ```
 
-## Autenticación y RBAC (Traefik Dynamic JWT Validation)
+## Autenticacion y RBAC
 
-La seguridad y control de acceso basado en roles (RBAC) se gestionan directamente en el API Gateway mediante el plugin **dynamic-jwt-validation-middleware** (`agilezebra/jwt-middleware`), eliminando la sobrecarga de ZITADEL y oauth2-proxy:
+Traefik utiliza el plugin `agilezebra/jwt-middleware` para validar JWT firmados con `JWT_SECRET`. Valida la expiracion, exige los roles configurados e inyecta `X-Auth-User`, `X-Auth-Email` y `X-Auth-Roles` al servicio de destino.
 
-- **Sin contenedores adicionales**: Ahorro de más de 1.5 GB de RAM al prescindir de Zitadel, su base de datos Postgres dedicada, el proxy Nginx y oauth2-proxy.
-- **Validación nativa en Traefik**: Valida la firma HMAC (`JWT_SECRET`), comprueba expiración (`exp`), evalúa roles requeridos (`roles`) e inyecta las cabeceras `X-Auth-User` y `X-Auth-Roles` aguas abajo.
-- **Middlewares configurados** en `traefik/dynamic/jwt-middlewares.yml`:
-  - `demo-jwt-auth@file`: Autenticación general en el entrypoint `web`.
-  - `demo-jwt-admin@file`: Requiere rol `admin`.
-  - `demo-jwt-service@file`: Requiere rol `service`.
-  - `demo-jwt-user@file`: Requiere rol `user` o `admin`.
+Los middlewares de `traefik/dynamic/jwt-middlewares.yml` son:
 
-### Generación de tokens para pruebas
+| Middleware | Uso |
+|---|---|
+| `demo-jwt-auth@file` | Rutas protegidas |
+| `demo-jwt-admin@file` | Requiere `admin` |
+| `demo-jwt-service@file` | Requiere `service` |
+| `demo-jwt-user@file` | Requiere `user` o `admin` |
 
-Se incluye el script ligero `scripts/jwt_tool.py` (usando únicamente la librería estándar de Python, sin paquetes externos):
+Las rutas `/api/test/public` y `/api/node/public` no requieren token. El resto de las rutas de los servicios requiere un JWT Bearer.
 
-```bash
-# Generar token para demo-service:
-python scripts/jwt_tool.py generate --sub demo-service --roles service
-# O con Makefile:
-make token
-
-# Generar token para demo-admin:
-make token-admin
-
-# Generar token para demo-user:
-make token-user
-```
-
-## Pruebas funcionales
-
-### 1. Petición sin token (rechazo esperado con 401 Unauthorized)
+Genere tokens de desarrollo sin dependencias externas:
 
 ```bash
-curl -i "http://localhost:8000/api/node"
-# Respuesta: HTTP/1.1 401 Unauthorized
+make token        # demo-service, rol service
+make token-admin  # demo-admin, roles admin,user
+make token-user   # demo-user, rol user
 ```
 
-### 2. Flujo correcto con Bearer token atravesando Traefik
+En PowerShell:
+
+```powershell
+$token = make token
+curl.exe -H "Authorization: Bearer $token" "http://localhost:8000/api/node?delay_ms=150"
+```
+
+En shells POSIX:
 
 ```bash
 TOKEN=$(make token)
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/node?delay_ms=150"
+```
+
+`JWT_SECRET` debe cambiarse en `.env` antes de compartir el entorno. El generador debe usar el mismo valor; exporte la variable de entorno antes de ejecutar `make token` si modifico el secreto.
+
+## Pruebas funcionales
+
+Primero cree un token (`TOKEN=$(make token)` o `$token = make token`).
+
+```bash
+# Ruta protegida sin token: 401
+curl -i http://localhost:8000/api/node
+
+# Rutas publicas: 200 sin token
+curl http://localhost:8000/api/test/public
+curl http://localhost:8000/api/node/public
+
+# Ruta protegida correcta: 200
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/node?delay_ms=150&fail=0"
+
+# Error controlado: 500
+curl -i -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/node?delay_ms=100&fail=1"
 ```
 
-O directamente con el target del Makefile:
+### Datos y cache
 
 ```bash
-make test-ok
+curl -X POST http://localhost:8000/api/test/items \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"demo"}'
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/test/items
+
+curl -X POST http://localhost:8000/api/node/items \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"demo"}'
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/node/items
 ```
 
-Flujo esperado:
+El primer `GET` devuelve `source: "db"`; las consultas posteriores durante 30 segundos devuelven `source: "cache"`. El `POST` invalida la cache. Los datos persisten en `postgres-data` y Redis usa AOF.
 
-```text
-curl (Authorization: Bearer <jwt>)
-  |
-  v
-Traefik :80 (valida firma HMAC + vigencia + roles)
-  |  (inyecta X-Auth-User y X-Auth-Roles)
-  v
-test-fastify-service :8084
-```
-
-Debe responder HTTP 200 e incluir un `trace_id` generado por el microservicio.
-
-### 2. Error controlado
-
-```bash
-curl -i "http://localhost:8000/api/node?delay_ms=100&fail=1"
-```
-
-El `test-fastify-service` retorna 500 y Traefik reenvia esa respuesta al cliente.
-
-### 3. Latencia
-
-```bash
-curl "http://localhost:8000/api/node?delay_ms=1200&fail=0"
-```
-
-Esto incrementa la latencia observada sin modificar infraestructura.
-
-### 4. Health check a traves de Traefik
-
-Las rutas `/health/*` no se publican por Traefik (no hay catch-all). El estado de cada servicio se revisa con `docker compose ps` y los healthchecks de contenedor.
-
-### 5. Servicios de prueba (FastAPI y Fastify)
-
-```bash
-curl "http://localhost:8000/api/test?delay_ms=50"
-curl -i "http://localhost:8000/api/test?fail=1"
-
-curl "http://localhost:8000/api/node?delay_ms=50"
-curl -i "http://localhost:8000/api/node?fail=1"
-```
-
-Respuesta correcta (200): `{"ok":true,"service":"...","trace_id":"...","message":"pong"}`. Con `fail=1` responden 500.
-
-### 6. PostgreSQL y Redis (ejemplo de items)
-
-```bash
-curl -X POST http://localhost:8000/api/test/items -H "Content-Type: application/json" -d '{"name":"demo"}'
-curl http://localhost:8000/api/test/items   # source: "db" (primera lectura)
-curl http://localhost:8000/api/test/items   # source: "cache" (hasta 30 s)
-
-curl -X POST http://localhost:8000/api/node/items -H "Content-Type: application/json" -d '{"name":"demo"}'
-curl http://localhost:8000/api/node/items
-```
-
-El `POST` devuelve 201 e invalida la cache; el `GET` indica en `source` si el dato vino de `db` o `cache`. Cada operacion genera spans (`*.db_insert`, `*.cache_lookup`, `*.db_select`) visibles en Tempo. Los datos sobreviven a `docker compose down` (sin `-v`).
-
-### 7. Comunicacion asincrona FastAPI → RabbitMQ → Fastify
+### Eventos asincronos
 
 ```bash
 curl -i -X POST http://localhost:8000/api/test/events \
-  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"name":"demo-event"}'
-curl http://localhost:8000/api/node/events
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/node/events
 ```
 
-La primera ruta responde `202` con un `event_id`; la segunda muestra el evento cuando Fastify lo procesa. El consumidor confirma el mensaje despues de guardarlo en PostgreSQL; un fallo de base de datos lo reencola y los reintentos no duplican eventos. Revisa `docker compose logs -f rabbitmq test-fastapi-service test-fastify-service` para seguir el flujo.
+FastAPI publica un mensaje persistente en `test.events`. Fastify lo confirma manualmente despues de guardarlo de forma idempotente en `node_events`; si falla la persistencia, RabbitMQ lo reencola.
 
-Al crear el volumen por primera vez, Postgres ejecuta `postgres/init/script.sql` (montado en `/docker-entrypoint-initdb.d`): crea las tablas `test_items`, `node_items` y `node_events`, y carga 3 filas semilla en cada una de las tablas de items. Si el volumen ya existe el script no se vuelve a ejecutar; para recargarlo hay que recrear el volumen (`docker compose down -v`, destructivo: borra tambien los datos de Redis y Grafana).
+### Rate limit
 
-Consultar directamente:
-
-```bash
-docker exec demo-postgres psql -U demo -d demo -c "select * from test_items"
-docker exec demo-redis redis-cli keys "*"
-```
-
-### 8. Rate limit
-
-```bash
-# 80 peticiones en paralelo (PowerShell 7)
-1..80 | ForEach-Object -Parallel { (Invoke-WebRequest "http://localhost:8000/api/node?delay_ms=0" -SkipHttpErrorCheck).StatusCode } -ThrottleLimit 40 | Group-Object
-```
-
-Las peticiones que superan el limite reciben HTTP 429.
-
-## Interfaces
-
-| Componente | URL local | Uso |
-|---|---|---|
-| Traefik / API | http://localhost:8000 | Entrada unica a la API |
-| Traefik Dashboard | http://localhost:8088/dashboard/ | Diagnostico del routing en desarrollo |
-| Grafana | http://localhost:3000 | Dashboards, logs y trazas |
-| Prometheus | http://localhost:9090 | Consulta de metricas |
-| Loki | http://localhost:3100/ready | Estado de Loki |
-| Tempo | http://localhost:3200/ready | Estado de Tempo |
-| ZITADEL | http://localhost:7000 | Emisor de tokens, login y consola (`/ui/console`) y Management API |
-
-Los microservicios no publican puertos hacia el host. Permanecen accesibles solamente dentro de `demo-observability-net`.
-
-`http://localhost:8000/` devuelve un JSON con el nombre del servicio y sus endpoints; no es una pagina HTML. La interfaz visual de observabilidad esta en `http://localhost:3000`.
-
-Credenciales iniciales de Grafana:
-
-```text
-usuario: admin
-clave:   admin
-```
-
-Cambielas en `.env` si el entorno se comparte.
-
-## Autenticacion centralizada (ZITADEL)
-
-Toda peticion a `http://localhost:8000` exige un JWT valido de ZITADEL. Los servicios no cambian: Traefik aplica el middleware `demo-auth` (forwardAuth) a nivel de entrypoint y lo valida `oauth2-proxy` (firma, expiracion, emisor y audiencia = id del proyecto `demo`).
-
-```text
-cliente -> ZITADEL (token) -> Traefik -> oauth2-proxy (valida) -> servicio
-                                  \-> X-Auth-Request-User / -Groups (roles)
-```
-
-ZITADEL (`ghcr.io/zitadel/zitadel`) guarda sus datos en la base `zitadel` de Postgres y se publica en `http://localhost:7000` (login en `/ui/login`, consola en `/ui/console`, usuario `zitadel-admin@zitadel.localhost`, clave `ZITADEL_ADMIN_PASSWORD`, por defecto `Password1!`).
-
-### Todo se gestiona por API
-
-En el primer arranque ZITADEL crea una cuenta de maquina (`zitadel-admin-sa`) y escribe su PAT en `zitadel/bootstrap/admin.pat` (ignorado por git). Con ese token el contenedor `zitadel-setup` ejecuta [zitadel/provision.sh](zitadel/provision.sh) contra la Management API, de forma idempotente, y crea:
-
-| Recurso | Detalle |
-|---|---|
-| Proyecto `demo` | Su id va en el claim `aud`; oauth2-proxy lo exige |
-| Roles | `user`, `admin`, `service` |
-| App `demo-client` | OIDC publica con PKCE (callback de Postman `https://oauth.pstmn.io/v1/callback`) |
-| Usuarios `demo-user`, `demo-admin` | Clave `DEMO_USER_PASSWORD` (por defecto `Demo-User1!`); roles `user` / `user`+`admin` |
-| Cuenta `demo-service` | `client_credentials`; credenciales en `zitadel/bootstrap/demo-service.json` |
-| Action `flattenRoles` | Convierte los roles a un claim `roles` (lista) que llega como `X-Auth-Request-Groups` |
-
-Para gestionar usuarios, usa el mismo PAT contra la Management API:
+Los limites por defecto son 10 solicitudes/s por IP, rafaga de 20 y 50 solicitudes simultaneas. Se ajustan con `RATE_LIMIT_AVERAGE`, `RATE_LIMIT_BURST` y `MAX_INFLIGHT_REQUESTS` en `.env`.
 
 ```powershell
-$pat = (Get-Content zitadel\bootstrap\admin.pat).Trim()
-$h = @("-H", "Authorization: Bearer $pat", "-H", "Content-Type: application/json")
-
-# Listar usuarios humanos
-'{"queries":[{"typeQuery":{"type":"TYPE_HUMAN"}}]}' | curl.exe -s -X POST http://localhost:7000/management/v1/users/_search @h -d '@-'
-
-# Crear usuario (devuelve userId)
-'{"userName":"ana","profile":{"firstName":"Ana","lastName":"Gomez"},"email":{"email":"ana@demo.local","isEmailVerified":true},"password":"Ana-Pass1!","passwordChangeRequired":false}' | curl.exe -s -X POST http://localhost:7000/management/v1/users/human/_import @h -d '@-'
-
-# Asignar rol (projectId en zitadel/bootstrap/project.json)
-'{"projectId":"<projectId>","roleKeys":["user"]}' | curl.exe -s -X POST http://localhost:7000/management/v1/users/<userId>/grants @h -d '@-'
-
-# Eliminar usuario
-curl.exe -s -X DELETE http://localhost:7000/management/v1/users/<userId> @h
+1..80 | ForEach-Object -Parallel {
+  (Invoke-WebRequest "http://localhost:8000/api/node?delay_ms=0" -SkipHttpErrorCheck).StatusCode
+} -ThrottleLimit 40 | Group-Object
 ```
 
-### Obtener un token y llamar a la API
+Las solicitudes que superen el limite reciben `429`.
 
-```powershell
-$c  = Get-Content zitadel\bootstrap\demo-service.json | ConvertFrom-Json
-$pj = (Get-Content zitadel\bootstrap\project.json | ConvertFrom-Json).projectId
-$t  = (curl.exe -s -X POST http://localhost:7000/oauth/v2/token -d "grant_type=client_credentials&client_id=$($c.clientId)&client_secret=$($c.clientSecret)&scope=openid urn:zitadel:iam:org:project:id:${pj}:aud urn:zitadel:iam:org:projects:roles" | ConvertFrom-Json).access_token
-curl.exe -i -H "Authorization: Bearer $t" http://localhost:8000/api/node   # 200
-curl.exe -i http://localhost:8000/api/node                                  # 401
-```
+## Observabilidad
 
-`make token` imprime ese mismo token. Los scopes `...:aud` (audiencia del proyecto) y `...:projects:roles` (roles) son obligatorios: sin ellos el token no pasa la validacion o llega sin roles.
-
-Los usuarios humanos obtienen el token con Authorization Code + PKCE (ZITADEL no admite password grant): en Postman, autorizacion OAuth 2.0 con la URL `http://localhost:7000/oauth/v2/authorize`, token `http://localhost:7000/oauth/v2/token`, `client_id` de `demoClientId` en `zitadel/bootstrap/project.json` y scopes `openid urn:zitadel:iam:org:project:id:<projectId>:aud urn:zitadel:iam:org:projects:roles`.
-
-El gateway solo autentica; la autorizacion por rol queda para cada servicio (leen `X-Auth-Request-Groups`). ZITADEL corre sin TLS (`tlsMode disabled`) y con claves de desarrollo: en produccion requiere HTTPS, `ZITADEL_MASTERKEY` propio y secretos fuera de los valores por defecto. El contenedor `zitadel-proxy` (nginx) solo reescribe el header `Host` para que oauth2-proxy lea las claves publicas por la red Docker, porque ZITADEL resuelve la instancia por dominio. Si `zitadel/bootstrap/` se borra con la base de datos intacta, hay que regenerar el PAT (recrear el volumen de Postgres).
-
-## Traefik
-
-Traefik descubre unicamente los contenedores habilitados explicitamente porque se configura:
-
-```text
-providers.docker.exposedByDefault=false
-```
-
-Los servicios se publican mediante labels de Docker:
-
-| Router | Regla | Servicio destino |
+| Senal | Flujo | Uso |
 |---|---|---|
-| `demo-test-fastapi` | `PathPrefix(`/api/test`)` | `test-fastapi-service:8083` |
-| `demo-test-fastify` | `PathPrefix(`/api/node`)` | `test-fastify-service:8084` |
+| Metricas | Servicios y Traefik -> Prometheus | Trafico, errores y latencia |
+| Trazas | Servicios -> Collector -> Tempo | Recorrido de una solicitud |
+| Logs | Servicios -> Collector -> Loki | Detalle de eventos |
 
-### Middlewares
+Grafana une las tres senales por `trace_id`. Flujo de diagnostico: detecte el problema en Prometheus, ubique el tramo afectado en Tempo y consulte los logs asociados en Loki.
 
-Se definen una sola vez por labels en el contenedor de `traefik` (`compose/gateway.yml`) y los routers de cada servicio los referencian como `<nombre>@docker`:
+Traefik tambien envia sus trazas por OTLP/gRPC a `otel-collector:4317`; el Collector las reenvia a Tempo. Esta configuracion es independiente de las metricas Prometheus. `TRAEFIK_TRACING_SAMPLE_RATE` controla el muestreo (`1.0` en desarrollo, `0.1` como punto de partida para un trafico mayor).
 
-| Middleware | Funcion | Valor por defecto |
-|---|---|---|
-| `demo-ratelimit` | Rate limit por IP de origen; responde 429 al excederlo | 10 peticiones/s, rafaga de 20 |
-| `demo-inflight` | Maximo de peticiones simultaneas; responde 429 al excederlo | 50 |
-| `demo-secure-headers` | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, filtro XSS y elimina `Server` / `X-Powered-By` | - |
-
-Se ajustan en `.env` con `RATE_LIMIT_AVERAGE`, `RATE_LIMIT_BURST` y `MAX_INFLIGHT_REQUESTS`. El dashboard (`:8088`) y los servicios de observabilidad no pasan por estos middlewares.
-
-El dashboard de Traefik se expone con `api.insecure=true` exclusivamente para este entorno de desarrollo. No debe utilizarse asi en produccion.
-
-Traefik monta:
-
-```text
-/var/run/docker.sock
-```
-
-en modo solo lectura para descubrir servicios Docker. Aunque el montaje sea `:ro`, el socket representa una superficie sensible y debe revisarse antes de usar este patron en un entorno compartido o productivo.
-
-### Metricas de Traefik
-
-Prometheus recoge tambien las metricas de Traefik desde la red interna:
-
-```text
-traefik:8082/metrics
-```
-
-Ejemplo PromQL:
-
-```promql
-sum by (entrypoint) (
-  rate(traefik_entrypoint_requests_total[1m])
-)
-```
-
-## Grafana
-
-Los data sources se aprovisionan automaticamente:
-
-- Prometheus
-- Loki
-- Tempo
-
-Tambien se carga el dashboard:
-
-```text
-Demo Etapa 1 - Observabilidad
-```
-
-Prometheus recoge tambien metricas de contenedores desde cAdvisor. El dashboard incluye graficas de solicitudes observadas por Traefik y de CPU y memoria por contenedor. cAdvisor solo se expone en la red interna de Docker; como requiere montar el socket de Docker, debe usarse solo en entornos de confianza.
-
-Para revisar trazas:
-
-1. Abra Grafana.
-2. Vaya a Explore.
-3. Seleccione `Tempo`.
-4. Busque trazas recientes o utilice el `trace_id` retornado por el servicio.
-
-Para revisar logs de los microservicios:
-
-1. Abra Explore.
-2. Seleccione `Loki`.
-3. Consulte, por ejemplo:
-
-```logql
-{service_name="test-fastify-service"}
-```
-
-O:
-
-```logql
-{service_name="test-fastapi-service"} |= "test_ok"
-{service_name="test-fastify-service"} |= "node_ok"
-```
-
-Los access logs de Traefik se generan en JSON sobre `stdout` y se consultan en desarrollo con:
-
-```bash
-docker compose logs -f traefik
-```
-
-No se incorporaron esos access logs a Loki en este cambio para no ampliar el alcance de la Etapa 1.
-
-## Metricas del demo
-
-Prometheus recoge de los microservicios:
-
-```text
-demo_http_requests_total
-demo_http_request_duration_seconds
-```
-
-Ejemplos PromQL:
+Consultas utiles:
 
 ```promql
 sum by (service) (rate(demo_http_requests_total[1m]))
 ```
 
 ```promql
-histogram_quantile(
-  0.95,
-  sum by (le, service) (rate(demo_http_request_duration_seconds_bucket[5m]))
-)
+histogram_quantile(0.95, sum by (le, service) (rate(demo_http_request_duration_seconds_bucket[5m])))
 ```
 
-```promql
-sum by (service) (rate(demo_http_requests_total{status=~"5.."}[1m]))
+```logql
+{service_name="test-fastify-service"}
 ```
 
-## Health checks
+## Interfaces locales
 
-Traefik utiliza su `ping` interno como health check del contenedor.
+| Componente | URL |
+|---|---|
+| API / Traefik | http://localhost:8000 |
+| Dashboard de Traefik | http://localhost:8088/dashboard/ |
+| Grafana | http://localhost:3000 |
+| Prometheus | http://localhost:9090 |
+| Loki | http://localhost:3100/ready |
+| Tempo | http://localhost:3200/ready |
 
-Cada servicio (`test-fastapi-service`, `test-fastify-service`):
+Grafana usa inicialmente `admin` / `admin`; cambie estas credenciales en `.env` si el entorno se comparte.
 
-```text
-GET /health/live
-GET /health/ready
-```
-
-Estas rutas se consultan dentro de la red Docker; Traefik no las publica. Los healthchecks de contenedor de cada servicio se declaran en su `compose.yaml` (el de Fastify usa `127.0.0.1` porque `localhost` resuelve a IPv6 en Alpine).
-
-### Validar dependencia caida
+## Operacion
 
 ```bash
-docker compose stop test-fastify-service
-curl -i http://localhost:8000/api/node
-```
-
-Traefik deja de enrutar al servicio no saludable y responde 404.
-
-Para restaurar:
-
-```bash
-docker compose start test-fastify-service
-```
-
-## Observabilidad: que hace cada componente
-
-La observabilidad permite entender el estado interno de un sistema a partir de sus salidas. Se apoya en tres senales: **metricas** (numeros agregados en el tiempo), **logs** (eventos puntuales) y **trazas** (el recorrido de una peticion). Cada una responde una pregunta distinta y ninguna basta por si sola.
-
-| Componente | Senal | Que hace en este demo | Ventajas |
-|---|---|---|---|
-| OpenTelemetry (SDK + Collector) | Todas | Los servicios se instrumentan con el SDK y envian trazas y logs por OTLP al Collector, que los reenvia a Tempo y Loki | Estandar abierto e independiente del proveedor; el mismo modelo sirve para Python y Node.js; cambiar de backend no exige tocar el codigo de los servicios |
-| Prometheus | Metricas | Recoge (scrape) `/metrics` de los servicios y de Traefik cada 5 s y permite consultas PromQL | Modelo pull simple, etiquetas multidimensionales, consultas potentes (tasas, percentiles) y base natural para alertas |
-| Loki | Logs | Almacena los logs JSON enviados por el Collector, indexados por etiquetas como `service_name` | Indexa solo etiquetas, no el texto completo: menor costo y operacion mas ligera; consultas con LogQL |
-| Tempo | Trazas | Guarda las trazas distribuidas y permite buscarlas por `trace_id` | Solo necesita almacenamiento de objetos o disco, sin indexar todo; se correlaciona con logs y metricas |
-| Grafana | Visualizacion | Unifica Prometheus, Loki y Tempo en un dashboard y en Explore | Una sola interfaz para las tres senales y para navegar entre ellas |
-| Traefik | Metricas y access logs | Expone metricas de entrada (`:8082`) y access logs JSON | Visibilidad del trafico desde el borde: volumen, codigos de estado y latencia antes de llegar a la aplicacion |
-
-### Como se complementan
-
-```text
-Servicios (Flask / FastAPI / Fastify)
-  |-- /metrics ---------------------------> Prometheus --\
-  |-- OTLP (trazas + logs) --> Collector --> Tempo -------+--> Grafana
-  |                                     `--> Loki -------/
-Traefik -- /metrics :8082 ---------------> Prometheus
-cAdvisor -- /metrics :8080 --------------> Prometheus
-```
-
-- **Metricas: detectan que algo va mal.** Un aumento de `demo_http_requests_total{status=~"5.."}` o del percentil 95 de latencia indica que existe un problema, pero no su causa.
-- **Trazas: localizan donde.** Con el `trace_id` que devuelve cada respuesta se ve el recorrido de la peticion y el span (por ejemplo `test.business_logic`) donde se gasta el tiempo o falla.
-- **Logs: explican por que.** Los logs estructurados incluyen `trace_id` y `span_id`, por lo que desde una traza se llega a sus logs exactos (por ejemplo `test_simulated_error`) y viceversa.
-- **Flujo de diagnostico tipico:** alerta o grafica en Prometheus, luego la traza afectada en Tempo y, por ultimo, los logs de ese `trace_id` en Loki, todo desde Grafana.
-- **Correlacion:** el identificador `trace_id` une las tres senales; por eso todos los servicios lo incluyen en sus respuestas y en cada log.
-- **Desacople:** el Collector separa a los servicios de los backends. Los servicios solo conocen el endpoint OTLP; Tempo y Loki se pueden reemplazar o ampliar sin cambiar la aplicacion.
-
-### Ejemplo practico con este demo
-
-1. Ejecutar `curl -i "http://localhost:8000/api/node?fail=1"`; responde 500 y devuelve un `trace_id`.
-2. En Prometheus: `sum by (service) (rate(demo_http_requests_total{status=~"5.."}[1m]))` muestra el aumento de errores en `test-fastify-service`.
-3. En Grafana > Explore > Tempo: buscar el `trace_id` para ver el span `node.business_logic`.
-4. En Grafana > Explore > Loki: `{service_name="test-fastify-service"} |= "node_simulated_error"` muestra el log asociado.
-
-## Detener
-
-Conservar volumenes:
-
-```bash
+# Detener y conservar datos
 docker compose down
-```
 
-Eliminar tambien datos del demo:
-
-```bash
+# Detener y eliminar todos los volumenes del demo (destructivo)
 docker compose down -v
 ```
 
-## Alcance y decisiones intencionales
+El script `postgres/init/script.sql` solo se ejecuta cuando se crea `postgres-data`; para volver a cargar las filas semilla debe recrear el volumen. Los healthchecks se consultan con `docker compose ps`; `/health/*` permanece interno y no se publica por Traefik.
 
-- Traefik se agrega como capa de entrada sin modificar el codigo de los microservicios.
-- No se cambia el contrato de `/api/demo`, `/health/live` ni `/health/ready`.
-- Los microservicios dejan de exponerse directamente al host para evitar bypass del API Gateway.
-- Los servicios de prueba (`test-fastapi-service`, `test-fastify-service`) solo existen para validar enrutado y observabilidad con distintos lenguajes.
-- Traefik aplica rate limit, limite de concurrencia, cabeceras de seguridad y validacion dinamica de JWT con control de roles RBAC mediante el plugin `agilezebra/jwt-middleware`. Se elimina la sobrecarga de ZITADEL y oauth2-proxy. No se agrega TLS.
-- No se usa una base de datos: no existe una regla funcional ni un esquema suministrado que justifique agregarla.
-- No se usa RabbitMQ/Kafka: no existe todavia un flujo asincrono que lo requiera.
-- No se usa Kubernetes/Istio: corresponden a una evolucion posterior del laboratorio.
-- Se mantienen los tags existentes `latest` y se fija Traefik en `v3.7.13` para admitir el descubrimiento de servicios con Docker Engine 29. Antes de un ambiente compartido o productivo se deben fijar y validar todas las versiones.
-- La clave de Grafana y el dashboard inseguro de Traefik son solo de desarrollo; no deben reutilizarse en produccion.
+## Alcance y limites
 
-## Pruebas sugeridas
+- Es un entorno de demostracion y desarrollo, no una configuracion de produccion.
+- El dashboard de Traefik usa `api.insecure=true` y los secretos de `.env.example` son valores de desarrollo.
+- Antes de produccion se requieren TLS, gestion de secretos, control de acceso al dashboard, imagenes con versiones inmutables y alta disponibilidad.
+- Traefik monta el socket Docker como solo lectura para descubrir servicios; aun asi es una superficie sensible y debe revisarse en entornos compartidos.
+- No se usa Kubernetes/Istio porque esta etapa valida Compose, enrutamiento y observabilidad local.
 
-1. Levantar todos los contenedores y verificar `docker compose ps`.
-2. Confirmar que ningun microservicio tenga puertos publicados al host.
-3. Abrir `http://localhost:8088/dashboard/` y confirmar los routers `demo-test-fastapi` y `demo-test-fastify`.
-4. Ejecutar 10 solicitudes correctas mediante `http://localhost:8000/api/node` y `/api/test`.
-5. Ejecutar 3 solicitudes con `fail=1`, contra `/api/test` y `/api/node`.
-6. Ejecutar 3 solicitudes con `delay_ms=1200`.
-7. Confirmar el target `traefik` como `UP` en Prometheus.
-8. Confirmar metricas de Traefik en Prometheus.
-9. Confirmar metricas de las aplicaciones en Prometheus.
-10. Confirmar logs de aplicaciones en Loki desde Grafana.
-11. Confirmar trazas en Tempo desde Grafana.
-12. Detener `test-fastify-service` y validar que `/api/node` deje de responder 200 atravesando Traefik.
-13. Lanzar una rafaga paralela contra `/api/node` y confirmar respuestas 429.
-14. Confirmar en Prometheus los targets `test-fastapi-service` y `test-fastify-service` como `UP`.
+## Referencias
 
-## Bibliografia y referencias
-
-Documentacion oficial:
-
-- OpenTelemetry. *Documentation* (conceptos de senales, SDK y Collector): https://opentelemetry.io/docs/
-- OpenTelemetry. *OTLP Specification*: https://opentelemetry.io/docs/specs/otlp/
-- Prometheus. *Overview*: https://prometheus.io/docs/introduction/overview/
-- Prometheus. *Querying basics (PromQL)*: https://prometheus.io/docs/prometheus/latest/querying/basics/
-- Grafana Labs. *Grafana Loki documentation*: https://grafana.com/docs/loki/latest/
-- Grafana Labs. *Grafana Tempo documentation*: https://grafana.com/docs/tempo/latest/
-- Grafana Labs. *Grafana documentation*: https://grafana.com/docs/grafana/latest/
-- Traefik Labs. *Traefik Proxy documentation* (routers, middlewares, RateLimit, InFlightReq, Headers): https://doc.traefik.io/traefik/
-- Flask: https://flask.palletsprojects.com/ - FastAPI: https://fastapi.tiangolo.com/ - Fastify: https://fastify.dev/
-
-Libros y articulos:
-
-- Majors, C., Fong-Jones, L. y Miranda, G. (2022). *Observability Engineering*. O'Reilly Media.
-- Parker, A., Spoonhower, D., Mace, J., Sigelman, B. y Isaacs, R. (2020). *Distributed Tracing in Practice*. O'Reilly Media.
-- Beyer, B., Jones, C., Petoff, J. y Murphy, N. R. (2016). *Site Reliability Engineering*, cap. 6 "Monitoring Distributed Systems". O'Reilly Media. Disponible en https://sre.google/sre-book/monitoring-distributed-systems/
-- Sigelman, B. H. et al. (2010). *Dapper, a Large-Scale Distributed Systems Tracing Infrastructure*. Google Technical Report.
+- [OpenTelemetry](https://opentelemetry.io/docs/)
+- [Prometheus](https://prometheus.io/docs/)
+- [Grafana Loki](https://grafana.com/docs/loki/latest/)
+- [Grafana Tempo](https://grafana.com/docs/tempo/latest/)
+- [Traefik Proxy](https://doc.traefik.io/traefik/)

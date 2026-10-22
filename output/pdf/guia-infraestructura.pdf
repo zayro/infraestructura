@@ -4,7 +4,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Kids [2 0 R 4 0 R 6 0 R 8 0 R] /Count 4 >>
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R] /Count 4 >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
@@ -37,10 +37,10 @@ BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (1) Tj ET
 endstream
 endobj
 6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 1 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<< /Length 3145 >>
+<< /Length 3219 >>
 stream
 BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (PARA USO GENERAL) Tj ET
 BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (La infraestructura en pocas palabras) Tj ET
@@ -75,8 +75,9 @@ BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 415 Tm (servicios. Esto permite continuar un
 BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 402 Tm (proceso sin obligar al usuario a) Tj ET
 BT /F1 9.2 Tf 243B53 rg 1 0 0 1 324 389 Tm (esperar.) Tj ET
 BT /F2 13 Tf 243B53 rg 1 0 0 1 50 320 Tm (Como viaja una solicitud) Tj ET
-BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 298 Tm (Persona o sistema -> puerta de entrada -> servicio adecuado -> datos o mensaje -> respuesta.) Tj ET
-BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 283 Tm (Mientras tanto, el entorno registra lo que ocurre para facilitar la operacion.) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 298 Tm (Persona o sistema -> puerta de entrada -> JWT y rol validados -> servicio adecuado -> datos) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 283 Tm (o mensaje -> respuesta. Mientras tanto, el entorno registra lo que ocurre para facilitar la) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 268 Tm (operacion.) Tj ET
 D9E2EC RG .5 w 50 260 m 545 260 l S
 BT /F2 13 Tf 243B53 rg 1 0 0 1 50 234 Tm (Que se gana) Tj ET
 BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 212 Tm (Orden: cada componente tiene una responsabilidad clara. Velocidad: la cache evita trabajo) Tj ET
@@ -87,10 +88,10 @@ BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (2) Tj ET
 endstream
 endobj
 8 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 3 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
 endobj
 9 0 obj
-<< /Length 2944 >>
+<< /Length 2950 >>
 stream
 BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (PARA PERSONAS TECNICAS) Tj ET
 BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (Arquitectura y flujos) Tj ET
@@ -103,7 +104,7 @@ BT /F1 8.5 Tf 627D98 rg 1 0 0 1 70 581 Tm (HTTP :8000) Tj ET
 EAF2F8 rg 50 524 495 46 re f
 D9E2EC RG .6 w 50 524 495 46 re S
 BT /F2 11 Tf 243B53 rg 1 0 0 1 70 549 Tm (Traefik) Tj ET
-BT /F1 8.5 Tf 627D98 rg 1 0 0 1 70 535 Tm (routing, rate limit, concurrencia, headers) Tj ET
+BT /F1 8.5 Tf 627D98 rg 1 0 0 1 70 535 Tm (routing, JWT/RBAC, rate limit, concurrencia, headers) Tj ET
 FFFFFF rg 50 478 495 46 re f
 D9E2EC RG .6 w 50 478 495 46 re S
 BT /F2 11 Tf 243B53 rg 1 0 0 1 70 503 Tm (FastAPI /api/test :8083     Fastify /api/node :8084) Tj ET
@@ -112,8 +113,8 @@ D9E2EC RG .6 w 50 432 495 46 re S
 BT /F2 11 Tf 243B53 rg 1 0 0 1 70 457 Tm (PostgreSQL datos persistentes   Redis cache-aside, TTL 30 s   RabbitMQ cola durable test.events) Tj ET
 BT /F2 13 Tf 243B53 rg 1 0 0 1 50 360 Tm (Reglas de exposicion) Tj ET
 BT /F1 9.7 Tf 243B53 rg 1 0 0 1 50 338 Tm (Solo Traefik publica la API en :8000. PostgreSQL, Redis y RabbitMQ publican sus puertos en) Tj ET
-BT /F1 9.7 Tf 243B53 rg 1 0 0 1 50 324 Tm (localhost para desarrollo; los servicios de aplicacion permanecen internos. El gateway) Tj ET
-BT /F1 9.7 Tf 243B53 rg 1 0 0 1 50 310 Tm (aplica 10 solicitudes/s por IP, rafaga de 20 y hasta 50 solicitudes simultaneas por defecto.) Tj ET
+BT /F1 9.7 Tf 243B53 rg 1 0 0 1 50 324 Tm (localhost para desarrollo; los servicios de aplicacion permanecen internos. Las rutas) Tj ET
+BT /F1 9.7 Tf 243B53 rg 1 0 0 1 50 310 Tm (protegidas usan JWT locales firmados con HMAC; no se despliega un proveedor de identidad.) Tj ET
 102A43 rg 50 245 495 24 re f
 BT /F2 8.3 Tf FFFFFF rg 1 0 0 1 60 253 Tm (Componente) Tj ET
 BT /F2 8.3 Tf FFFFFF rg 1 0 0 1 190 253 Tm (Responsabilidad) Tj ET
@@ -139,10 +140,10 @@ BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (3) Tj ET
 endstream
 endobj
 10 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
 endobj
 11 0 obj
-<< /Length 3378 >>
+<< /Length 3443 >>
 stream
 BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (OPERACION) Tj ET
 BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (Observar, diagnosticar, actuar) Tj ET
@@ -183,11 +184,11 @@ BT /F1 8.2 Tf 243B53 rg 1 0 0 1 300 320 Tm (localhost:9090) Tj ET
 BT /F1 8.2 Tf 243B53 rg 1 0 0 1 420 320 Tm (localhost:8088/dashboard/) Tj ET
 BT /F2 13 Tf 243B53 rg 1 0 0 1 50 270 Tm (Limites actuales y siguiente paso) Tj ET
 F5F8FA rg 50 182 495 72 re f
-BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 232 Tm (Es un entorno de demostracion y desarrollo: el dashboard de Traefik usa) Tj ET
-BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 218 Tm (configuracion insegura, no hay autenticacion ni TLS, y los secretos parten de) Tj ET
-BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 204 Tm (valores de ejemplo. Para produccion, priorizar gestion de secretos, TLS,) Tj ET
-BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 190 Tm (autenticacion, endurecimiento de accesos, versionado inmutable de imagenes y alta) Tj ET
-BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 176 Tm (disponibilidad.) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 232 Tm (Es un entorno de demostracion y desarrollo: Traefik valida JWT de prueba generados) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 218 Tm (localmente, el dashboard usa configuracion insegura, no hay TLS y los secretos) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 204 Tm (parten de valores de ejemplo. Para produccion, priorizar gestion de secretos, TLS,) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 190 Tm (integracion con un proveedor de identidad si se requiere, endurecimiento de) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 176 Tm (accesos, versionado inmutable de imagenes y alta disponibilidad.) Tj ET
 BT /F1 8.5 Tf 627D98 rg 1 0 0 1 50 150 Tm (Fuente: configuracion y documentacion del repositorio de infraestructura.) Tj ET
 D9E2EC RG .5 w 50 48 m 545 48 l S
 BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
@@ -195,25 +196,25 @@ BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (4) Tj ET
 endstream
 endobj
 12 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 11 0 R >>
 endobj
 xref
 0 13
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
-0000000139 00000 n 
-0000000209 00000 n 
-0000000284 00000 n 
-0000001605 00000 n 
-0000001747 00000 n 
-0000004943 00000 n 
-0000005085 00000 n 
-0000008080 00000 n 
-0000008223 00000 n 
-0000011653 00000 n 
+0000000141 00000 n 
+0000000211 00000 n 
+0000000286 00000 n 
+0000001607 00000 n 
+0000001749 00000 n 
+0000005019 00000 n 
+0000005161 00000 n 
+0000008162 00000 n 
+0000008305 00000 n 
+0000011800 00000 n 
 trailer
 << /Size 13 /Root 1 0 R >>
 startxref
-11796
+11944
 %%EOF

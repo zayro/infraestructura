@@ -3,5 +3,3 @@ __pycache__/
 *.pyc
 .DS_Store
 /services/*
-# PAT de administracion y credenciales generadas por zitadel-setup
-/zitadel/bootstrap/
