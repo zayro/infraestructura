@@ -41,37 +41,37 @@ data "aws_ssm_parameter" "amazon_linux_2023" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
 
-resource "aws_vpc" "demo" {
+resource "aws_vpc" "app" {
   cidr_block           = "10.20.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = "demo-vpc" }
+  tags = { Name = "app-vpc" }
 }
 
 resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.demo.id
+  vpc_id                  = aws_vpc.app.id
   cidr_block              = "10.20.1.0/24"
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
 
-  tags = { Name = "demo-public-subnet" }
+  tags = { Name = "app-public-subnet" }
 }
 
-resource "aws_internet_gateway" "demo" {
-  vpc_id = aws_vpc.demo.id
-  tags   = { Name = "demo-igw" }
+resource "aws_internet_gateway" "app" {
+  vpc_id = aws_vpc.app.id
+  tags   = { Name = "app-igw" }
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.demo.id
+  vpc_id = aws_vpc.app.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.demo.id
+    gateway_id = aws_internet_gateway.app.id
   }
 
-  tags = { Name = "demo-public-rt" }
+  tags = { Name = "app-public-rt" }
 }
 
 resource "aws_route_table_association" "public" {
@@ -79,10 +79,10 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_security_group" "demo" {
-  name        = "demo-compose-sg"
+resource "aws_security_group" "app" {
+  name        = "app-compose-sg"
   description = "Acceso restringido al host de Docker Compose"
-  vpc_id      = aws_vpc.demo.id
+  vpc_id      = aws_vpc.app.id
 
   dynamic "ingress" {
     for_each = {
@@ -107,14 +107,14 @@ resource "aws_security_group" "demo" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "demo-compose-sg" }
+  tags = { Name = "app-compose-sg" }
 }
 
 resource "aws_instance" "compose_host" {
   ami                         = data.aws_ssm_parameter.amazon_linux_2023.value
   instance_type               = var.instance_type
   subnet_id                   = aws_subnet.public.id
-  vpc_security_group_ids      = [aws_security_group.demo.id]
+  vpc_security_group_ids      = [aws_security_group.app.id]
   key_name                    = var.key_name
   associate_public_ip_address = true
 
@@ -124,7 +124,7 @@ resource "aws_instance" "compose_host" {
     volume_type = "gp3"
   }
 
-  tags = { Name = "demo-compose-host" }
+  tags = { Name = "app-compose-host" }
 }
 
 output "public_ip" {

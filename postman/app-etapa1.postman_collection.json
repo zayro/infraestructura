@@ -1,7 +1,7 @@
 {
   "info": {
-    "_postman_id": "demo-etapa1-infraestructura",
-    "name": "Demo Etapa 1 - Infraestructura Microservicios",
+    "_postman_id": "app-etapa1-infraestructura",
+    "name": "App Etapa 1 - Infraestructura Microservicios",
     "description": "Colección para validar la arquitectura de Microservicios, Traefik con dynamic-jwt-validation-middleware y Observabilidad.\n\nTodo el tráfico entra por Traefik ({{base_url}}), el cual valida el JWT en rutas protegidas e inyecta la identidad en cabeceras X-Auth-*, y permite el libre acceso sin token en rutas públicas (/api/test/public, /api/node/public).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -18,17 +18,17 @@
     {
       "key": "access_token",
       "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXNlcnZpY2UiLCJlbWFpbCI6ImRlbW8tc2VydmljZUBkZW1vLmxvY2FsIiwicm9sZXMiOlsic2VydmljZSJdLCJpYXQiOjE3OTI2MjAzMTAsImV4cCI6MTc5MjcwNjcxMH0.4hQB9zdbPXKTNJ6BKxpghGPWQ7dK_vd-od058_67DVI",
-      "description": "JWT con identidad demo-service (rol: service)"
+      "description": "JWT con identidad app-service (rol: service)"
     },
     {
       "key": "admin_token",
       "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLWFkbWluIiwiZW1haWwiOiJkZW1vLWFkbWluQGRlbW8ubG9jYWwiLCJyb2xlcyI6WyJhZG1pbiIsInVzZXIiXSwiaWF0IjoxNzkyNjIwMzEwLCJleHAiOjE3OTI3MDY3MTB9.LxyhkBosMdLOsUzcfMH_OmzCzhx1VTfT3bTSbxkyEBw",
-      "description": "JWT con identidad demo-admin (roles: admin, user)"
+      "description": "JWT con identidad app-admin (roles: admin, user)"
     },
     {
       "key": "user_token",
       "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXVzZXIiLCJlbWFpbCI6ImRlbW8tdXNlckBkZW1vLmxvY2FsIiwicm9sZXMiOlsidXNlciJdLCJpYXQiOjE3OTI2MjAzMTAsImV4cCI6MTc5MjcwNjcxMH0.cYvVCuw8gfmMNDlI2QhRi1D2ZlNsNmudHttI5T_wyLE",
-      "description": "JWT con identidad demo-user (rol: user)"
+      "description": "JWT con identidad app-user (rol: user)"
     },
     {
       "key": "grafana_url",
@@ -82,7 +82,7 @@
             "method": "GET",
             "header": [],
             "url": { "raw": "{{base_url}}/api/test/public", "host": ["{{base_url}}"], "path": ["api", "test", "public"] },
-            "description": "Demuestra acceso público sin token JWT a través del router demo-test-fastapi-public de Traefik."
+            "description": "Demuestra acceso público sin token JWT a través del router app-test-fastapi-public de Traefik."
           }
         },
         {
@@ -107,7 +107,7 @@
             "method": "GET",
             "header": [],
             "url": { "raw": "{{base_url}}/api/node/public", "host": ["{{base_url}}"], "path": ["api", "node", "public"] },
-            "description": "Demuestra acceso público sin token JWT a través del router demo-test-fastify-public de Traefik."
+            "description": "Demuestra acceso público sin token JWT a través del router app-test-fastify-public de Traefik."
           }
         },
         {
@@ -154,8 +154,8 @@
                   "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
                   "pm.test('Retorna contexto auth', () => pm.expect(body.auth).to.be.an('object'));",
-                  "pm.test('Usuario es demo-service', () => pm.expect(body.auth.user).to.eql('demo-service'));",
-                  "pm.test('Email es demo-service@demo.local', () => pm.expect(body.auth.email).to.eql('demo-service@demo.local'));",
+                  "pm.test('Usuario es app-service', () => pm.expect(body.auth.user).to.eql('app-service'));",
+                  "pm.test('Email es app-service@app.local', () => pm.expect(body.auth.email).to.eql('app-service@app.local'));",
                   "pm.test('Contiene rol service', () => pm.expect(body.auth.roles).to.include('service'));"
                 ]
               }
@@ -179,8 +179,8 @@
                 "exec": [
                   "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test('Usuario es demo-admin', () => pm.expect(body.auth.user).to.eql('demo-admin'));",
-                  "pm.test('Email es demo-admin@demo.local', () => pm.expect(body.auth.email).to.eql('demo-admin@demo.local'));",
+                  "pm.test('Usuario es app-admin', () => pm.expect(body.auth.user).to.eql('app-admin'));",
+                  "pm.test('Email es app-admin@app.local', () => pm.expect(body.auth.email).to.eql('app-admin@app.local'));",
                   "pm.test('Contiene rol admin', () => pm.expect(body.auth.roles).to.include('admin'));"
                 ]
               }
@@ -204,8 +204,8 @@
                 "exec": [
                   "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test('Usuario es demo-user', () => pm.expect(body.auth.user).to.eql('demo-user'));",
-                  "pm.test('Email es demo-user@demo.local', () => pm.expect(body.auth.email).to.eql('demo-user@demo.local'));",
+                  "pm.test('Usuario es app-user', () => pm.expect(body.auth.user).to.eql('app-user'));",
+                  "pm.test('Email es app-user@app.local', () => pm.expect(body.auth.email).to.eql('app-user@app.local'));",
                   "pm.test('Contiene rol user', () => pm.expect(body.auth.roles).to.include('user'));"
                 ]
               }
@@ -281,7 +281,7 @@
                 "exec": [
                   "pm.test('status 201', () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
-                  "pm.test('registra created_by del JWT', () => pm.expect(body.created_by).to.eql('demo-service'));"
+                  "pm.test('registra created_by del JWT', () => pm.expect(body.created_by).to.eql('app-service'));"
                 ]
               }
             }
@@ -309,7 +309,7 @@
                 "exec": [
                   "pm.test('status 202', () => pm.response.to.have.status(202));",
                   "const body = pm.response.json();",
-                  "pm.test('registra published_by del JWT', () => pm.expect(body.published_by).to.eql('demo-service'));",
+                  "pm.test('registra published_by del JWT', () => pm.expect(body.published_by).to.eql('app-service'));",
                   "pm.collectionVariables.set('fastapi_event_id', body.event_id);"
                 ]
               }
@@ -409,7 +409,7 @@
                 "exec": [
                   "pm.test('status 201', () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
-                  "pm.test('registra created_by del JWT', () => pm.expect(body.created_by).to.eql('demo-service'));"
+                  "pm.test('registra created_by del JWT', () => pm.expect(body.created_by).to.eql('app-service'));"
                 ]
               }
             }
@@ -436,7 +436,7 @@
                 "exec": [
                   "pm.test('status 201', () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
-                  "pm.test('registra published_by del JWT', () => pm.expect(body.published_by).to.eql('demo-service'));",
+                  "pm.test('registra published_by del JWT', () => pm.expect(body.published_by).to.eql('app-service'));",
                   "pm.collectionVariables.set('fastify_event_id', body.event.event_id);"
                 ]
               }
@@ -480,7 +480,7 @@
       "name": "4. Observabilidad y Métricas",
       "item": [
         {
-          "name": "Demo - flujo OK (guarda trace_id)",
+          "name": "App - flujo OK (guarda trace_id)",
           "event": [
             {
               "listen": "test",
@@ -511,7 +511,7 @@
           }
         },
         {
-          "name": "Demo - error controlado (500)",
+          "name": "App - error controlado (500)",
           "event": [
             {
               "listen": "test",
@@ -540,7 +540,7 @@
           }
         },
         {
-          "name": "Demo - latencia alta (1200ms)",
+          "name": "App - latencia alta (1200ms)",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
           "request": {
             "method": "GET",

@@ -11,7 +11,7 @@
 | `test-fastify-service` | `test-fastify-service:8084/metrics` | Metricas de la aplicacion Fastify. |
 | `cadvisor` | `cadvisor:8080/metrics` | CPU, memoria y uso de los contenedores Docker. |
 
-Todos los destinos son servicios de Docker Compose dentro de `demo-observability-net`. Prometheus publica `http://localhost:9090` y almacena datos en `prometheus-data`. Compose limita la retencion a tres dias mediante `--storage.tsdb.retention.time=3d`.
+Todos los destinos son servicios de Docker Compose dentro de `app-observability-net`. Prometheus publica `http://localhost:9090` y almacena datos en `prometheus-data`. Compose limita la retencion a tres dias mediante `--storage.tsdb.retention.time=3d`.
 
 ## Que no hace
 
@@ -22,11 +22,11 @@ Esta configuracion no descubre contenedores dinamicamente, no raspa el Collector
 Abra `http://localhost:9090/targets`: todos los trabajos deben aparecer como `UP`.
 
 ```promql
-sum by (service) (rate(demo_http_requests_total[1m]))
+sum by (service) (rate(app_http_requests_total[1m]))
 
 histogram_quantile(
   0.95,
-  sum by (le, service) (rate(demo_http_request_duration_seconds_bucket[5m]))
+  sum by (le, service) (rate(app_http_request_duration_seconds_bucket[5m]))
 )
 ```
 

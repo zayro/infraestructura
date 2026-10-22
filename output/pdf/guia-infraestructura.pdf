@@ -13,7 +13,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 5 0 obj
-<< /Length 1270 >>
+<< /Length 1269 >>
 stream
 BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 744 Tm (INFRAESTRUCTURA) Tj ET
 BT /F2 31 Tf 102A43 rg 1 0 0 1 50 680 Tm (Una plataforma,) Tj ET
@@ -32,7 +32,7 @@ BT /F1 9 Tf 243B53 rg 1 0 0 1 385 420 Tm (Operacion) Tj ET
 BT /F1 8.5 Tf 627D98 rg 1 0 0 1 50 370 Tm (Alcance: entorno autocontenido de desarrollo desplegado con Docker Compose.) Tj ET
 BT /F1 8.5 Tf 627D98 rg 1 0 0 1 50 357 Tm (No representa todavia una arquitectura de produccion.) Tj ET
 D9E2EC RG .5 w 50 48 m 545 48 l S
-BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
+BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de appstracion) Tj ET
 BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (1) Tj ET
 endstream
 endobj
@@ -40,7 +40,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<< /Length 3219 >>
+<< /Length 3218 >>
 stream
 BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (PARA USO GENERAL) Tj ET
 BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (La infraestructura en pocas palabras) Tj ET
@@ -83,7 +83,7 @@ BT /F2 13 Tf 243B53 rg 1 0 0 1 50 234 Tm (Que se gana) Tj ET
 BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 212 Tm (Orden: cada componente tiene una responsabilidad clara. Velocidad: la cache evita trabajo) Tj ET
 BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 197 Tm (repetido. Confianza: metricas, registros y trazas ayudan a detectar y explicar incidentes.) Tj ET
 D9E2EC RG .5 w 50 48 m 545 48 l S
-BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
+BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de appstracion) Tj ET
 BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (2) Tj ET
 endstream
 endobj
@@ -91,12 +91,12 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
 endobj
 9 0 obj
-<< /Length 2950 >>
+<< /Length 2948 >>
 stream
 BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (PARA PERSONAS TECNICAS) Tj ET
 BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (Arquitectura y flujos) Tj ET
 BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 680 Tm (Un unico proyecto Docker Compose organiza los componentes en la red interna) Tj ET
-BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 665 Tm (demo-observability-net. Los microservicios no exponen puertos al host.) Tj ET
+BT /F1 10.2 Tf 243B53 rg 1 0 0 1 50 665 Tm (app-observability-net. Los microservicios no exponen puertos al host.) Tj ET
 D9F5EE rg 50 570 495 46 re f
 D9E2EC RG .6 w 50 570 495 46 re S
 BT /F2 11 Tf 243B53 rg 1 0 0 1 70 595 Tm (Cliente) Tj ET
@@ -135,7 +135,7 @@ BT /F1 8.1 Tf 243B53 rg 1 0 0 1 60 157 Tm (RabbitMQ) Tj ET
 BT /F1 8.1 Tf 243B53 rg 1 0 0 1 190 157 Tm (Mensajeria asincrona) Tj ET
 BT /F1 8.1 Tf 243B53 rg 1 0 0 1 345 157 Tm (FastAPI publica; Fastify consume y confirma manualmente.) Tj ET
 D9E2EC RG .5 w 50 48 m 545 48 l S
-BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
+BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de appstracion) Tj ET
 BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (3) Tj ET
 endstream
 endobj
@@ -143,7 +143,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
 endobj
 11 0 obj
-<< /Length 3443 >>
+<< /Length 3440 >>
 stream
 BT /F2 8.5 Tf 007C78 rg 1 0 0 1 50 760 Tm (OPERACION) Tj ET
 BT /F2 23 Tf 102A43 rg 1 0 0 1 50 710 Tm (Observar, diagnosticar, actuar) Tj ET
@@ -158,8 +158,8 @@ D9F5EE rg 215 520 165 110 re f
 D9E2EC RG .6 w 215 520 165 110 re S
 BT /F2 12 Tf 102A43 rg 1 0 0 1 227 596 Tm (Trazas) Tj ET
 BT /F1 8.5 Tf 627D98 rg 1 0 0 1 227 580 Tm (OpenTelemetry -> Tempo) Tj ET
-BT /F1 8.7 Tf 243B53 rg 1 0 0 1 227 559 Tm (En que paso se demoro) Tj ET
-BT /F1 8.7 Tf 243B53 rg 1 0 0 1 227 547 Tm (o fallo la solicitud?) Tj ET
+BT /F1 8.7 Tf 243B53 rg 1 0 0 1 227 559 Tm (En que paso se appro o) Tj ET
+BT /F1 8.7 Tf 243B53 rg 1 0 0 1 227 547 Tm (fallo la solicitud?) Tj ET
 D9F5EE rg 380 520 165 110 re f
 D9E2EC RG .6 w 380 520 165 110 re S
 BT /F2 12 Tf 102A43 rg 1 0 0 1 392 596 Tm (Logs) Tj ET
@@ -184,14 +184,14 @@ BT /F1 8.2 Tf 243B53 rg 1 0 0 1 300 320 Tm (localhost:9090) Tj ET
 BT /F1 8.2 Tf 243B53 rg 1 0 0 1 420 320 Tm (localhost:8088/dashboard/) Tj ET
 BT /F2 13 Tf 243B53 rg 1 0 0 1 50 270 Tm (Limites actuales y siguiente paso) Tj ET
 F5F8FA rg 50 182 495 72 re f
-BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 232 Tm (Es un entorno de demostracion y desarrollo: Traefik valida JWT de prueba generados) Tj ET
+BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 232 Tm (Es un entorno de appstracion y desarrollo: Traefik valida JWT de prueba generados) Tj ET
 BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 218 Tm (localmente, el dashboard usa configuracion insegura, no hay TLS y los secretos) Tj ET
 BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 204 Tm (parten de valores de ejemplo. Para produccion, priorizar gestion de secretos, TLS,) Tj ET
 BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 190 Tm (integracion con un proveedor de identidad si se requiere, endurecimiento de) Tj ET
 BT /F1 9.5 Tf 243B53 rg 1 0 0 1 65 176 Tm (accesos, versionado inmutable de imagenes y alta disponibilidad.) Tj ET
 BT /F1 8.5 Tf 627D98 rg 1 0 0 1 50 150 Tm (Fuente: configuracion y documentacion del repositorio de infraestructura.) Tj ET
 D9E2EC RG .5 w 50 48 m 545 48 l S
-BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de demostracion) Tj ET
+BT /F1 8 Tf 627D98 rg 1 0 0 1 50 31 Tm (Guia de infraestructura - entorno de appstracion) Tj ET
 BT /F1 8 Tf 627D98 rg 1 0 0 1 535 31 Tm (4) Tj ET
 endstream
 endobj
@@ -206,15 +206,15 @@ xref
 0000000141 00000 n 
 0000000211 00000 n 
 0000000286 00000 n 
-0000001607 00000 n 
-0000001749 00000 n 
-0000005019 00000 n 
-0000005161 00000 n 
-0000008162 00000 n 
-0000008305 00000 n 
-0000011800 00000 n 
+0000001606 00000 n 
+0000001748 00000 n 
+0000005017 00000 n 
+0000005159 00000 n 
+0000008158 00000 n 
+0000008301 00000 n 
+0000011793 00000 n 
 trailer
 << /Size 13 /Root 1 0 R >>
 startxref
-11944
+11937
 %%EOF

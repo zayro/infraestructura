@@ -1,4 +1,4 @@
-# Punto de entrada unico: un solo proyecto, una sola red (demo-observability-net) y los mismos volumenes.
+# Punto de entrada unico: un solo proyecto, una sola red (app-observability-net) y los mismos volumenes.
 # - compose/: plataforma (datos, observabilidad, gateway), a cargo del equipo de plataforma.
 # - services/*/compose.yaml: cada servicio define su propio contenedor; solo dependen de postgres,
 #   redis, rabbitmq y otel-collector por nombre. Sus rutas son relativas a su propia carpeta.
@@ -9,7 +9,8 @@ include:
     project_directory: .
   - path: compose/gateway.yml
     project_directory: .
-  # compose/auth.yml eliminado: la autenticacion y roles se validan directamente en Traefik con agilezebra/jwt-middleware
-  - https://github.com/zayro/api-telemetria-fastapi.git#main:compose.yaml
-  # Servicio en su propio repositorio: Compose lo clona en su cache y construye desde alli.
-  - https://github.com/zayro/api-telemetria-fastify.git#main:compose.yaml
+  # Servicios versionados localmente junto con la plataforma para conservar sus contratos.
+  - path: services/test-fastapi/compose.yaml
+    project_directory: services/test-fastapi
+  - path: services/test-fastify/compose.yaml
+    project_directory: services/test-fastify

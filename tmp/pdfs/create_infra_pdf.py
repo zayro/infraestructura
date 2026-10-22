@@ -48,7 +48,7 @@ def footer(canvas, doc):
     canvas.setStrokeColor(LINE); canvas.setLineWidth(.4)
     canvas.line(18*mm, 14*mm, W-18*mm, 14*mm)
     canvas.setFont('Helvetica', 8); canvas.setFillColor(MUTED)
-    canvas.drawString(18*mm, 8.5*mm, 'Guia de infraestructura - entorno de demostracion')
+    canvas.drawString(18*mm, 8.5*mm, 'Guia de infraestructura - entorno de appstracion')
     canvas.drawRightString(W-18*mm, 8.5*mm, f'{doc.page}')
     canvas.restoreState()
 
@@ -78,7 +78,7 @@ story += [Spacer(1, 11*mm), P('Como viaja una solicitud', h2),
 story.append(PageBreak())
 
 # Technical architecture
-story += [P('PARA PERSONAS TECNICAS', kicker), P('Arquitectura y flujos', h1), P('Un unico proyecto Docker Compose organiza los componentes en la red interna <font name="Courier">demo-observability-net</font>. Los microservicios no exponen puertos al host.', body)]
+story += [P('PARA PERSONAS TECNICAS', kicker), P('Arquitectura y flujos', h1), P('Un unico proyecto Docker Compose organiza los componentes en la red interna <font name="Courier">app-observability-net</font>. Los microservicios no exponen puertos al host.', body)]
 diagram = Table([
  [P('<b>Cliente</b><br/><font size="8">HTTP :8000</font>', cardbody)],
  [P('<b>Traefik</b><br/><font size="8">routing, JWT/RBAC, rate limit, concurrencia, headers</font>', cardbody)],
@@ -96,12 +96,12 @@ story.append(PageBreak())
 # Observability + ops
 story += [P('OPERACION', kicker), P('Observar, diagnosticar, actuar', h1), P('La observabilidad permite pasar de una alerta general a la causa concreta sin adivinar.', body)]
 obs = [[P('<b>Metricas</b><br/><font size="8">Prometheus</font>',cardbody), P('<b>Trazas</b><br/><font size="8">OpenTelemetry -> Tempo</font>',cardbody), P('<b>Logs</b><br/><font size="8">OpenTelemetry -> Loki</font>',cardbody)],
-       [P('¿Cuanto trafico, error o latencia hay?',small), P('¿En que paso se demoro o fallo la solicitud?',small), P('¿Que detalle explica el evento?',small)]]
+       [P('¿Cuanto trafico, error o latencia hay?',small), P('¿En que paso se appro o fallo la solicitud?',small), P('¿Que detalle explica el evento?',small)]]
 story += [Table(obs, colWidths=[56*mm]*3, style=[('BACKGROUND',(0,0),(-1,0),MINT),('BOX',(0,0),(-1,-1),.6,LINE),('INNERGRID',(0,0),(-1,-1),.6,LINE),('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),9),('RIGHTPADDING',(0,0),(-1,-1),9),('TOPPADDING',(0,0),(-1,-1),9),('BOTTOMPADDING',(0,0),(-1,-1),9)]), Spacer(1,9*mm), P('Grafana: una vista unificada', h2), P('Grafana conecta Prometheus, Loki y Tempo. El identificador <font name="Courier">trace_id</font> une una respuesta, su traza y sus logs: primero se detecta el problema en metricas, luego se ubica en la traza y por ultimo se explica con registros.', body), P('Interfaces de desarrollo', h2)]
 links = [[P('API',tablehead),P('Grafana',tablehead),P('Prometheus',tablehead),P('Traefik',tablehead)],
          [P('localhost:8000',tablecell),P('localhost:3000',tablecell),P('localhost:9090',tablecell),P('localhost:8088/dashboard/',tablecell)]]
 story += [Table(links, colWidths=[34*mm,39*mm,42*mm,53*mm], style=[('BACKGROUND',(0,0),(-1,0),NAVY),('GRID',(0,0),(-1,-1),.45,LINE),('ALIGN',(0,0),(-1,-1),'CENTER'),('TOPPADDING',(0,0),(-1,-1),7),('BOTTOMPADDING',(0,0),(-1,-1),7)])]
-story += [Spacer(1,10*mm), P('Limites actuales y siguiente paso', h2), P('Es un entorno de demostracion y desarrollo: Traefik valida JWT de prueba generados localmente, el dashboard usa configuracion insegura, no hay TLS y los secretos parten de valores de ejemplo. Para produccion, priorizar gestion de secretos, TLS, integracion con un proveedor de identidad si se requiere, endurecimiento de accesos, versionado inmutable de imagenes y alta disponibilidad.', body), Spacer(1,6*mm), P('Fuente: configuracion y documentacion del repositorio de infraestructura.', small)]
+story += [Spacer(1,10*mm), P('Limites actuales y siguiente paso', h2), P('Es un entorno de appstracion y desarrollo: Traefik valida JWT de prueba generados localmente, el dashboard usa configuracion insegura, no hay TLS y los secretos parten de valores de ejemplo. Para produccion, priorizar gestion de secretos, TLS, integracion con un proveedor de identidad si se requiere, endurecimiento de accesos, versionado inmutable de imagenes y alta disponibilidad.', body), Spacer(1,6*mm), P('Fuente: configuracion y documentacion del repositorio de infraestructura.', small)]
 
 doc.build(story, onFirstPage=footer, onLaterPages=footer)
 print(OUT)

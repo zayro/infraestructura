@@ -71,7 +71,7 @@
   <section class="page">
     <div class="k">PARA PERSONAS TÉCNICAS</div>
     <h2>Arquitectura y flujos</h2>
-    <p>Un único proyecto Docker Compose organiza los componentes en la red interna <span class="mono">demo-observability-net</span>. Los microservicios no exponen puertos al host.</p>
+    <p>Un único proyecto Docker Compose organiza los componentes en la red interna <span class="mono">app-observability-net</span>. Los microservicios no exponen puertos al host.</p>
     <div class="flow">
       <div><b>Cliente</b><br><small>HTTP :8000</small></div>
       <div><b>Traefik</b><br><small>routing, JWT/RBAC, rate limit, concurrencia y headers</small></div>
@@ -87,15 +87,15 @@
     <div class="k">OPERACIÓN</div>
     <h2>Observar, diagnosticar, actuar</h2>
     <p>La observabilidad permite pasar de una alerta general a la causa concreta sin adivinar.</p>
-    <div class="signals"><div><strong>Métricas</strong><br><small>Prometheus</small><p>¿Cuánto tráfico, error o latencia hay?</p></div><div><strong>Trazas</strong><br><small>OpenTelemetry -> Tempo</small><p>¿En qué paso se demoró o falló la solicitud?</p></div><div><strong>Logs</strong><br><small>OpenTelemetry -> Loki</small><p>¿Qué detalle explica el evento?</p></div></div>
+    <div class="signals"><div><strong>Métricas</strong><br><small>Prometheus</small><p>¿Cuánto tráfico, error o latencia hay?</p></div><div><strong>Trazas</strong><br><small>OpenTelemetry -> Tempo</small><p>¿En qué paso se appró o falló la solicitud?</p></div><div><strong>Logs</strong><br><small>OpenTelemetry -> Loki</small><p>¿Qué detalle explica el evento?</p></div></div>
     <h3>Grafana: una vista unificada</h3>
     <p>Grafana conecta Prometheus, Loki y Tempo. El identificador <span class="mono">trace_id</span> une una respuesta, su traza y sus logs: primero se detecta el problema en métricas, luego se ubica en la traza y por último se explica con registros.</p>
     <h3>Interfaces de desarrollo</h3>
     <table><tr><th>API</th><th>Grafana</th><th>Prometheus</th><th>Traefik</th></tr><tr><td>localhost:8000</td><td>localhost:3000</td><td>localhost:9090</td><td>localhost:8088/dashboard/</td></tr></table>
     <h3>Límites actuales y siguiente paso</h3>
-    <div class="caution">Es un entorno de demostración y desarrollo: Traefik valida JWT de prueba generados localmente, el dashboard usa configuración insegura, no hay TLS y los secretos parten de valores de ejemplo. Para producción se requieren gestión de secretos, TLS, control de acceso al dashboard, imágenes inmutables y alta disponibilidad.</div>
+    <div class="caution">Es un entorno de appstración y desarrollo: Traefik valida JWT de prueba generados localmente, el dashboard usa configuración insegura, no hay TLS y los secretos parten de valores de ejemplo. Para producción se requieren gestión de secretos, TLS, control de acceso al dashboard, imágenes inmutables y alta disponibilidad.</div>
     <p class="note">Fuente: configuración y documentación del repositorio de infraestructura.</p>
   </section>
-  <div class="footer">Guía de infraestructura - entorno de demostración</div>
+  <div class="footer">Guía de infraestructura - entorno de appstración</div>
 </body>
 </html>

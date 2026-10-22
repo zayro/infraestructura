@@ -12,7 +12,7 @@ import sys
 import time
 
 DEFAULT_SECRET = os.getenv("JWT_SECRET", "super-secret-jwt-token-key-32-chars-long")
-DEFAULT_ISSUER = os.getenv("JWT_ISSUER", "demo-traefik")
+DEFAULT_ISSUER = os.getenv("JWT_ISSUER", "app-traefik")
 
 
 def b64url_encode(data: bytes) -> str:
@@ -34,7 +34,7 @@ def create_token(
 ) -> str:
     now = int(time.time())
     if email is None:
-        email = f"{sub}@demo.local"
+        email = f"{sub}@app.local"
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "iss": iss,
@@ -67,13 +67,13 @@ def main():
     subparsers = parser.add_subparsers(dest="cmd")
 
     gen_parser = subparsers.add_parser("generate", help="Generate a signed JWT")
-    gen_parser.add_argument("--sub", default="demo-service", help="Subject (user or service id)")
+    gen_parser.add_argument("--sub", default="app-service", help="Subject (user or service id)")
     gen_parser.add_argument(
         "--roles",
         default="service",
         help="Comma-separated roles (e.g. admin,user,service)",
     )
-    gen_parser.add_argument("--email", default=None, help="Email claim (defaults to sub@demo.local)")
+    gen_parser.add_argument("--email", default=None, help="Email claim (defaults to sub@app.local)")
     gen_parser.add_argument("--secret", default=DEFAULT_SECRET, help="HMAC secret key")
     gen_parser.add_argument("--iss", default=DEFAULT_ISSUER, help="Issuer claim")
     gen_parser.add_argument("--ttl", type=int, default=86400, help="TTL in seconds (default 1 day)")
@@ -84,7 +84,7 @@ def main():
     args = parser.parse_args()
 
     if args.cmd == "generate" or args.cmd is None:
-        sub = getattr(args, "sub", "demo-service")
+        sub = getattr(args, "sub", "app-service")
         roles_str = getattr(args, "roles", "service")
         roles = [r.strip() for r in roles_str.split(",") if r.strip()]
         email = getattr(args, "email", None)

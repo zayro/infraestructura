@@ -14,7 +14,7 @@ que efectivamente recibe.
 ## Que configura `loki-config.yaml`
 
 - `auth_enabled: false`: desactiva la autenticacion de Loki. Es apropiado para
-  este entorno de demostracion en una red Docker privada, no para exponer Loki
+  este entorno de appstracion en una red Docker privada, no para exponer Loki
   directamente en una red publica.
 - `server.http_listen_port: 3100`: habilita la API HTTP de Loki en el puerto
   `3100`.

@@ -4,7 +4,7 @@
 http:
   middlewares:
     # 1. Autenticacion base: valida token firmado con JWT_SECRET, formato e inyecta headers upstream
-    demo-jwt-auth:
+    app-jwt-auth:
       plugin:
         jwt:
           secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'
@@ -15,7 +15,7 @@ http:
           removeMissingHeaders: true
 
     # 2. RBAC - Rol Admin requerido
-    demo-jwt-admin:
+    app-jwt-admin:
       plugin:
         jwt:
           secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'
@@ -29,7 +29,7 @@ http:
           removeMissingHeaders: true
 
     # 3. RBAC - Rol Service requerido (ej. llamadas M2M)
-    demo-jwt-service:
+    app-jwt-service:
       plugin:
         jwt:
           secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'
@@ -43,7 +43,7 @@ http:
           removeMissingHeaders: true
 
     # 4. RBAC - Rol User o Admin permitido
-    demo-jwt-user:
+    app-jwt-user:
       plugin:
         jwt:
           secret: '{{ env "JWT_SECRET" | default "super-secret-jwt-token-key-32-chars-long" }}'

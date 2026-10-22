@@ -33,7 +33,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (rate(demo_http_requests_total[1m]))",
+          "expr": "sum by (service) (rate(app_http_requests_total[1m]))",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -67,7 +67,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(demo_http_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(app_http_request_duration_seconds_bucket[5m])))",
           "legendFormat": "p95 {{service}}",
           "refId": "A"
         }
@@ -101,7 +101,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (rate(demo_http_requests_total{status=~\"5..\"}[1m]))",
+          "expr": "sum by (service) (rate(app_http_requests_total{status=~\"5..\"}[1m]))",
           "legendFormat": "5xx {{service}}",
           "refId": "A"
         }
@@ -246,7 +246,7 @@
   "refresh": "5s",
   "schemaVersion": 39,
   "tags": [
-    "demo",
+    "app",
     "opentelemetry",
     "prometheus",
     "loki",
@@ -261,7 +261,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Demo Etapa 1 - Observabilidad",
-  "uid": "demo-etapa1",
+  "title": "App Etapa 1 - Observabilidad",
+  "uid": "app-etapa1",
   "version": 2
 }

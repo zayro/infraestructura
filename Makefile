@@ -19,9 +19,9 @@ traefik-logs:
 	docker compose logs -f traefik
 
 # Generacion ligera de tokens JWT para pruebas RBAC (zero dependencias externas)
-TOKEN_CMD = python scripts/jwt_tool.py generate --sub demo-service --roles service
-TOKEN_ADMIN_CMD = python scripts/jwt_tool.py generate --sub demo-admin --roles admin,user
-TOKEN_USER_CMD = python scripts/jwt_tool.py generate --sub demo-user --roles user
+TOKEN_CMD = python scripts/jwt_tool.py generate --sub app-service --roles service
+TOKEN_ADMIN_CMD = python scripts/jwt_tool.py generate --sub app-admin --roles admin,user
+TOKEN_USER_CMD = python scripts/jwt_tool.py generate --sub app-user --roles user
 
 token:
 	@$(TOKEN_CMD)

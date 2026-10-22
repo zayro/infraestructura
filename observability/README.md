@@ -1,6 +1,6 @@
 # Configuracion de observabilidad
 
-Esta carpeta define el recorrido de metricas, logs y trazas del entorno de demostracion. Los servicios exponen `/metrics` y envian datos OTLP al Collector; cada backend queda desacoplado de la aplicacion.
+Esta carpeta define el recorrido de metricas, logs y trazas del entorno de appstracion. Los servicios exponen `/metrics` y envian datos OTLP al Collector; cada backend queda desacoplado de la aplicacion.
 
 ```text
 Servicios -- /metrics --> Prometheus ---------------------\\

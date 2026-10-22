@@ -1,4 +1,4 @@
-# Demo Etapa 1 - Microservicios, Traefik y observabilidad con Docker Compose
+# App Etapa 1 - Microservicios, Traefik y observabilidad con Docker Compose
 
 Entorno autocontenido de desarrollo para validar un API Gateway, dos microservicios HTTP, datos, mensajeria y observabilidad.
 
@@ -30,7 +30,7 @@ Servicios -- OTLP -------> Collector --> Tempo + Loki --> Grafana
 Traefik -- metricas ------------------/
 ```
 
-Todos los contenedores comparten la red Docker `demo-observability-net`. Los microservicios no publican puertos al host.
+Todos los contenedores comparten la red Docker `app-observability-net`. Los microservicios no publican puertos al host.
 
 ## Componentes
 
@@ -89,19 +89,19 @@ Los middlewares de `traefik/dynamic/jwt-middlewares.yml` son:
 
 | Middleware | Uso |
 |---|---|
-| `demo-jwt-auth@file` | Rutas protegidas |
-| `demo-jwt-admin@file` | Requiere `admin` |
-| `demo-jwt-service@file` | Requiere `service` |
-| `demo-jwt-user@file` | Requiere `user` o `admin` |
+| `app-jwt-auth@file` | Rutas protegidas |
+| `app-jwt-admin@file` | Requiere `admin` |
+| `app-jwt-service@file` | Requiere `service` |
+| `app-jwt-user@file` | Requiere `user` o `admin` |
 
 Las rutas `/api/test/public` y `/api/node/public` no requieren token. El resto de las rutas de los servicios requiere un JWT Bearer.
 
 Genere tokens de desarrollo sin dependencias externas:
 
 ```bash
-make token        # demo-service, rol service
-make token-admin  # demo-admin, roles admin,user
-make token-user   # demo-user, rol user
+make token        # app-service, rol service
+make token-admin  # app-admin, roles admin,user
+make token-user   # app-user, rol user
 ```
 
 En PowerShell:
@@ -144,12 +144,12 @@ curl -i -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/node?delay_
 ```bash
 curl -X POST http://localhost:8000/api/test/items \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"demo"}'
+  -d '{"name":"app"}'
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/test/items
 
 curl -X POST http://localhost:8000/api/node/items \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"demo"}'
+  -d '{"name":"app"}'
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/node/items
 ```
 
@@ -160,7 +160,7 @@ El primer `GET` devuelve `source: "db"`; las consultas posteriores durante 30 se
 ```bash
 curl -i -X POST http://localhost:8000/api/test/events \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"demo-event"}'
+  -d '{"name":"app-event"}'
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/node/events
 ```
 
@@ -193,11 +193,11 @@ Traefik tambien envia sus trazas por OTLP/gRPC a `otel-collector:4317`; el Colle
 Consultas utiles:
 
 ```promql
-sum by (service) (rate(demo_http_requests_total[1m]))
+sum by (service) (rate(app_http_requests_total[1m]))
 ```
 
 ```promql
-histogram_quantile(0.95, sum by (le, service) (rate(demo_http_request_duration_seconds_bucket[5m])))
+histogram_quantile(0.95, sum by (le, service) (rate(app_http_request_duration_seconds_bucket[5m])))
 ```
 
 ```logql
@@ -224,7 +224,7 @@ Grafana usa inicialmente `admin` / `admin`; cambie estas credenciales en `.env` 
 # Detener y conservar datos
 docker compose down
 
-# Detener y eliminar todos los volumenes del demo (destructivo)
+# Detener y eliminar todos los volumenes del app (destructivo)
 docker compose down -v
 ```
 
@@ -232,7 +232,7 @@ El script `postgres/init/script.sql` solo se ejecuta cuando se crea `postgres-da
 
 ## Alcance y limites
 
-- Es un entorno de demostracion y desarrollo, no una configuracion de produccion.
+- Es un entorno de appstracion y desarrollo, no una configuracion de produccion.
 - El dashboard de Traefik usa `api.insecure=true` y los secretos de `.env.example` son valores de desarrollo.
 - Antes de produccion se requieren TLS, gestion de secretos, control de acceso al dashboard, imagenes con versiones inmutables y alta disponibilidad.
 - Traefik monta el socket Docker como solo lectura para descubrir servicios; aun asi es una superficie sensible y debe revisarse en entornos compartidos.
