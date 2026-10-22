@@ -212,6 +212,7 @@ histogram_quantile(0.95, sum by (le, service) (rate(demo_http_request_duration_s
 | Dashboard de Traefik | http://localhost:8088/dashboard/ |
 | Grafana | http://localhost:3000 |
 | Prometheus | http://localhost:9090 |
+| cAdvisor | http://localhost:8081 |
 | Loki | http://localhost:3100/ready |
 | Tempo | http://localhost:3200/ready |
 
