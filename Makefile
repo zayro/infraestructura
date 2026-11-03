@@ -1,4 +1,4 @@
-.PHONY: up down reset ps logs traefik-logs token token-admin token-user test-ok test-unauthorized test-fail
+.PHONY: up down reset ps logs traefik-logs token token-admin token-user postman-tokens test-ok test-unauthorized test-fail
 
 up:
 	docker compose up -d --build
@@ -31,6 +31,10 @@ token-admin:
 
 token-user:
 	@$(TOKEN_USER_CMD)
+
+# Genera los 3 tokens y actualiza las variables de postman/app-etapa1.postman_collection.json
+postman-tokens:
+	python scripts/update_postman_tokens.py
 
 test-ok:
 	curl -H "Authorization: Bearer $$($(TOKEN_CMD))" "http://localhost:8000/api/node?delay_ms=150&fail=0"
