@@ -98,27 +98,42 @@ Las rutas `/api/test/public` y `/api/node/public` no requieren token. El resto d
 
 Genere tokens de desarrollo sin dependencias externas:
 
+Con `make`:
+
 ```bash
 make token        # app-service, rol service
 make token-admin  # app-admin, roles admin,user
 make token-user   # app-user, rol user
 ```
 
+O directamente con Python (recomendado en Windows PowerShell o para definir tiempo de expiración `--ttl`):
+
+```bash
+# Token de servicio (sub: app-service, rol: service, TTL: 1 año = 31536000 s)
+python scripts/jwt_tool.py generate --sub app-service --roles service --ttl 31536000
+
+# Token de administrador (sub: app-admin, roles: admin, user, TTL: 1 año)
+python scripts/jwt_tool.py generate --sub app-admin --roles admin,user --ttl 31536000
+
+# Token de usuario regular (sub: app-user, rol: user, TTL: 1 año)
+python scripts/jwt_tool.py generate --sub app-user --roles user --ttl 31536000
+```
+
 En PowerShell:
 
 ```powershell
-$token = make token
-curl.exe -H "Authorization: Bearer $token" "http://localhost:8000/api/node?delay_ms=150"
+$token = python scripts/jwt_tool.py generate --sub app-service --roles service
+curl.exe -i -H "Authorization: Bearer $token" "http://localhost:8000/api/node?delay_ms=0&fail=0"
 ```
 
 En shells POSIX:
 
 ```bash
-TOKEN=$(make token)
-curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/node?delay_ms=150"
+TOKEN=$(python scripts/jwt_tool.py generate --sub app-service --roles service)
+curl -i -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/node?delay_ms=0&fail=0"
 ```
 
-`JWT_SECRET` debe cambiarse en `.env` antes de compartir el entorno. El generador debe usar el mismo valor; exporte la variable de entorno antes de ejecutar `make token` si modifico el secreto.
+`JWT_SECRET` debe cambiarse en `.env` antes de compartir el entorno. El generador debe usar el mismo valor; exporte la variable de entorno antes de ejecutar la generación si modificó el secreto.
 
 ## Pruebas funcionales
 
@@ -177,6 +192,41 @@ Los limites por defecto son 10 solicitudes/s por IP, rafaga de 20 y 50 solicitud
 ```
 
 Las solicitudes que superen el limite reciben `429`.
+
+### Colección de Postman y pruebas automatizadas (Newman)
+
+El proyecto incluye la colección lista para usar en `postman/app-etapa1.postman_collection.json`, con pruebas funcionales de autenticación, validación RBAC, rutas públicas vs. protegidas, operaciones CRUD con caché Redis, mensajería asíncrona RabbitMQ y trazas en Tempo.
+
+#### Variables requeridas en la colección
+
+La colección requiere 3 tokens en sus variables (`Collection Variables`):
+- `access_token`: JWT con rol `service` y usuario `app-service`.
+- `admin_token`: JWT con roles `admin,user` y usuario `app-admin`.
+- `user_token`: JWT con rol `user` y usuario `app-user`.
+
+#### Actualizar tokens manualmente en Postman
+
+1. Genere tokens válidos con la duración deseada (por ejemplo, 1 año con `--ttl 31536000`):
+   ```bash
+   python scripts/jwt_tool.py generate --sub app-service --roles service --ttl 31536000
+   python scripts/jwt_tool.py generate --sub app-admin --roles admin,user --ttl 31536000
+   python scripts/jwt_tool.py generate --sub app-user --roles user --ttl 31536000
+   ```
+2. En Postman:
+   - Abra la colección **App Etapa 1 - Infraestructura Microservicios**.
+   - Vaya a la pestaña **Variables**.
+   - Pegue cada token correspondiente en las columnas **Initial value** y **Current value**.
+   - Guarde los cambios (**Ctrl + S**).
+
+*(Alternativa: Reimporte el archivo `postman/app-etapa1.postman_collection.json`, el cual ya cuenta con tokens válidos preconfigurados).*
+
+#### Ejecución de la suite completa por CLI (Newman)
+
+Para validar todos los endpoints y aserciones de la colección de Postman directamente desde la terminal:
+
+```bash
+npx -y newman run postman/app-etapa1.postman_collection.json --bail
+```
 
 ## Observabilidad
 

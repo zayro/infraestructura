@@ -17,17 +17,17 @@
     },
     {
       "key": "access_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXNlcnZpY2UiLCJlbWFpbCI6ImRlbW8tc2VydmljZUBkZW1vLmxvY2FsIiwicm9sZXMiOlsic2VydmljZSJdLCJpYXQiOjE3OTI2MjAzMTAsImV4cCI6MTc5MjcwNjcxMH0.4hQB9zdbPXKTNJ6BKxpghGPWQ7dK_vd-od058_67DVI",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcHAtdHJhZWZpayIsInN1YiI6ImFwcC1zZXJ2aWNlIiwiZW1haWwiOiJhcHAtc2VydmljZUBhcHAubG9jYWwiLCJyb2xlcyI6WyJzZXJ2aWNlIl0sImlhdCI6MTc5MzEyNjU0MywiZXhwIjoxODI0NjYyNTQzfQ.m36sXzzWsQ821BeSmrKGTpUks82YSE53N5nqU-CVnX8",
       "description": "JWT con identidad app-service (rol: service)"
     },
     {
       "key": "admin_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLWFkbWluIiwiZW1haWwiOiJkZW1vLWFkbWluQGRlbW8ubG9jYWwiLCJyb2xlcyI6WyJhZG1pbiIsInVzZXIiXSwiaWF0IjoxNzkyNjIwMzEwLCJleHAiOjE3OTI3MDY3MTB9.LxyhkBosMdLOsUzcfMH_OmzCzhx1VTfT3bTSbxkyEBw",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcHAtdHJhZWZpayIsInN1YiI6ImFwcC1hZG1pbiIsImVtYWlsIjoiYXBwLWFkbWluQGFwcC5sb2NhbCIsInJvbGVzIjpbImFkbWluIiwidXNlciJdLCJpYXQiOjE3OTMxMjY2NTcsImV4cCI6MTgyNDY2MjY1N30.7UTjOGKEAo55iX48YgDOaVnkwKUWznG4coGvLctargM",
       "description": "JWT con identidad app-admin (roles: admin, user)"
     },
     {
       "key": "user_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZW1vLXRyYWVmaWsiLCJzdWIiOiJkZW1vLXVzZXIiLCJlbWFpbCI6ImRlbW8tdXNlckBkZW1vLmxvY2FsIiwicm9sZXMiOlsidXNlciJdLCJpYXQiOjE3OTI2MjAzMTAsImV4cCI6MTc5MjcwNjcxMH0.cYvVCuw8gfmMNDlI2QhRi1D2ZlNsNmudHttI5T_wyLE",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcHAtdHJhZWZpayIsInN1YiI6ImFwcC11c2VyIiwiZW1haWwiOiJhcHAtdXNlckBhcHAubG9jYWwiLCJyb2xlcyI6WyJ1c2VyIl0sImlhdCI6MTc5MzEyNjY2NCwiZXhwIjoxODI0NjYyNjY0fQ.aREeSFTeg2zbJ2XDbk8w1AfIEwKODtyRlVc7CRTM_G4",
       "description": "JWT con identidad app-user (rol: user)"
     },
     {
