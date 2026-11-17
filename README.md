@@ -79,6 +79,18 @@ docker compose up -d --build
 docker compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka:9092 --describe --group test-fastify-service
 ```
 
+Validacion reproducible (Node.js en el host para el primer comando):
+
+```powershell
+node scripts/verify_kafka.cjs
+docker compose cp scripts/verify_kafka_delivery.py test-fastapi-service:/tmp/verify_kafka_delivery.py
+docker compose exec -T test-fastapi-service python /tmp/verify_kafka_delivery.py
+```
+
+La primera prueba comprueba HTTP, persistencia, metricas, logs, trazas y salud de Grafana;
+si se proporciona `GRAFANA_API_TOKEN`, tambien valida el dashboard mediante su API.
+la segunda comprueba duplicados, DLQ y offsets. Crean eventos de prueba y conservan sus registros.
+
 Es un despliegue local con PLAINTEXT y replica unica, sin alta disponibilidad. OpenTelemetry Collector, Tempo, Loki y Grafana conservan sus responsabilidades.
 
 ## Organizacion de Compose
