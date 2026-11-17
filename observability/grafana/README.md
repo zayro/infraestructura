@@ -1,6 +1,6 @@
 # Grafana
 
-La carpeta contiene el provisioning que Grafana aplica al iniciar el contenedor y el dashboard incluido en el laboratorio. El Dockerfile copia `provisioning/` a `/etc/grafana/provisioning` y `dashboards/` a `/var/lib/grafana/dashboards`.
+La carpeta contiene el provisioning que Grafana aplica al iniciar el contenedor y los dashboards incluidos en el laboratorio. El Dockerfile copia `provisioning/` a `/etc/grafana/provisioning` y `dashboards/` a `/etc/grafana/dashboards`, fuera del volumen de datos para que un volumen existente no oculte los archivos de la imagen.
 
 ## Fuentes de datos
 
@@ -16,7 +16,7 @@ La definicion habilita navegacion entre senales: en Loki, el campo JSON `trace_i
 
 ## Dashboard
 
-`provisioning/dashboards/dashboards.yaml` registra un proveedor de tipo archivo llamado `App observabilidad`. Carga los JSON de `/var/lib/grafana/dashboards` en la carpeta `App Etapa 1`, revisandolos cada 10 segundos. `disableDeletion: false` permite eliminar dashboards que ya no figuren en el aprovisionamiento.
+`provisioning/dashboards/dashboards.yaml` registra un proveedor de tipo archivo llamado `App observabilidad`. Carga los JSON de `/etc/grafana/dashboards` en la carpeta `App Etapa 1`, revisandolos cada 10 segundos. `disableDeletion: false` permite eliminar dashboards que ya no figuren en el aprovisionamiento.
 
 El archivo `dashboards/app-overview.json` define el dashboard entregado con el stack. Para cambios reproducibles, edite el JSON y no solo el dashboard desde la interfaz web.
 
