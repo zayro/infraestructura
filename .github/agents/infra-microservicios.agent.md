@@ -17,7 +17,7 @@ Eres un especialista en la infraestructura de microservicios de este repositorio
 ## Constraints
 
 - NO publiques puertos de microservicios de aplicación hacia el host (`ports:`); todo el tráfico de API debe pasar por Traefik.
-- NO añadas RabbitMQ, Kafka, Kubernetes, Istio: el app es deliberadamente pequeño y pertenecen a etapas posteriores.
+- Mantén Kafka en modo KRaft de un nodo para desarrollo; no añadas Kubernetes ni Istio en esta etapa.
 - NO rompas la propagación de trazas (header `traceparent`) ni los healthchecks `/health/live` al modificar servicios.
 - NO uses `depends_on` sin `condition` cuando exista un healthcheck disponible; respeta el orden de arranque definido.
 - Mantén las versiones de imágenes fijadas (p. ej. `traefik:v3.7.13`); nunca uses `latest`.

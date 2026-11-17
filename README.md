@@ -4,7 +4,7 @@ Entorno autocontenido de desarrollo para validar un API Gateway, dos microservic
 
 - Traefik como punto unico de entrada.
 - Servicios de prueba en FastAPI y Fastify.
-- PostgreSQL, Redis y RabbitMQ.
+- PostgreSQL, Redis y Kafka.
 - OpenTelemetry Collector, Prometheus, Loki, Tempo y Grafana.
 - JWT y RBAC validados directamente en Traefik.
 
@@ -21,7 +21,7 @@ Traefik (JWT/RBAC, rate limit, concurrencia, headers)
   |-- /api/test --> test-fastapi-service :8083
   `-- /api/node --> test-fastify-service :8084
 
-FastAPI -- eventos AMQP --> RabbitMQ --> Fastify --> PostgreSQL
+FastAPI -- eventos Kafka --> Kafka --> Fastify --> PostgreSQL
    |                         |
    `-- PostgreSQL + Redis ---'
 
@@ -37,17 +37,46 @@ Todos los contenedores comparten la red Docker `app-observability-net`. Los micr
 | Componente | Responsabilidad | Exposicion |
 |---|---|---|
 | `traefik` | Gateway HTTP, enrutado, JWT/RBAC, rate limit y headers | `:8000`, dashboard `:8088` |
-| `test-fastapi-service` | API Python/FastAPI y publicador AMQP | Interna, `:8083` |
-| `test-fastify-service` | API Node/Fastify y consumidor AMQP | Interna, `:8084` |
+| `test-fastapi-service` | API Python/FastAPI y publicador Kafka | Interna, `:8083` |
+| `test-fastify-service` | API Node/Fastify y consumidor Kafka | Interna, `:8084` |
 | `postgres` | Persistencia de items y eventos | `127.0.0.1:5432` |
 | `redis` | Cache-aside con TTL de 30 s | `127.0.0.1:6379` |
-| `rabbitmq` | Cola durable `test.events` | `127.0.0.1:5672`, consola `:15672` |
+| `kafka` | Topic retenido `test.events` | `127.0.0.1:29092` |
 | `otel-collector` | Recibe OTLP y reenvia senales | Interna |
 | `prometheus` | Metricas | `:9090` |
 | `loki` / `tempo` | Logs / trazas | `:3100` / `:3200` |
 | `grafana` | Visualizacion unificada | `:3000` |
 
-Los dos servicios exponen `/metrics`, `/health/live` y `/health/ready` dentro de la red Docker. Las APIs incluyen CRUD de items, cache Redis y un flujo asincrono FastAPI -> RabbitMQ -> Fastify.
+Los dos servicios exponen `/metrics`, `/health/live` y `/health/ready` dentro de la red Docker. Las APIs incluyen CRUD de items, cache Redis y un flujo asincrono FastAPI -> Kafka -> Fastify.
+
+## Mensajeria Kafka
+
+Kafka 4.1.2 utiliza KRaft con un broker/controlador para desarrollo. No requiere ZooKeeper.
+Los topics `test.events` y `test.events.dlq` tienen tres particiones, replica unica y retencion de siete dias; `kafka-init` los crea antes de iniciar las aplicaciones.
+Los nombres se configuran con `KAFKA_TOPIC` y `KAFKA_DLQ_TOPIC`; el grupo con `KAFKA_CONSUMER_GROUP`.
+Los clientes de contenedores usan `kafka:9092`; los del host, `localhost:29092`.
+
+Compose incluye los checkouts locales de ambos repositorios. Si no existen, prepararlos desde la raiz:
+
+```powershell
+git clone https://github.com/zayro/api-telemetria-fastapi.git services/test-fastapi
+git clone https://github.com/zayro/api-telemetria-fastify.git services/test-fastify
+```
+
+Ambos checkouts deben contener la migracion Kafka. Cada servicio conserva su propio repositorio Git: sus cambios se versionan alli, porque `/services/*` esta excluido del repositorio de infraestructura.
+
+FastAPI publica con `aiokafka`, idempotencia y `acks=all`. Fastify consume con KafkaJS, grupo estable y confirmacion manual del siguiente offset despues de PostgreSQL. La entrega es al menos una vez; el `event_id` unico evita duplicar filas. Los grupos nuevos leen desde el principio del historial retenido. El orden es por particion, usando `event_id` como clave.
+
+La escritura de FastAPI en PostgreSQL y su publicacion siguen siendo dos operaciones separadas; la migracion no implementa un outbox transaccional. Una interrupcion entre ambas puede requerir reconciliacion.
+
+No se transfieren automaticamente mensajes pendientes de RabbitMQ ni se elimina su volumen anterior. Antes de migrar un entorno con mensajes pendientes, detener publicaciones y drenar la cola con los servicios anteriores.
+
+```powershell
+docker compose up -d --build
+docker compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka:9092 --describe --group test-fastify-service
+```
+
+Es un despliegue local con PLAINTEXT y replica unica, sin alta disponibilidad. OpenTelemetry Collector, Tempo, Loki y Grafana conservan sus responsabilidades.
 
 ## Organizacion de Compose
 
@@ -55,13 +84,13 @@ Los dos servicios exponen `/metrics`, `/health/live` y `/health/ready` dentro de
 
 | Archivo o directorio | Contenido |
 |---|---|
-| `compose/infra.yml` | PostgreSQL, RabbitMQ y Redis |
+| `compose/infra.yml` | PostgreSQL, Kafka y Redis |
 | `compose/gateway.yml` | Traefik y sus middlewares compartidos |
 | `compose/observability.yml` | Collector, Prometheus, cAdvisor, Loki, Tempo y Grafana |
 | `traefik/dynamic/jwt-middlewares.yml` | Middlewares JWT/RBAC de Traefik |
 | `services/<servicio>/compose.yaml` | Contenedor, healthcheck y routers de cada servicio |
 
-El servicio Fastify se incluye desde `https://github.com/zayro/api-telemetria-fastify.git#main:compose.yaml`; Compose lo clona en su cache. Para fijar una version, sustituya `main` por un tag o commit.
+Los dos microservicios se incluyen desde sus checkouts locales en `services/`. Deben actualizarse junto con la infraestructura para conservar el contrato Kafka.
 
 ## Requisitos e inicio
 
@@ -179,7 +208,7 @@ curl -i -X POST http://localhost:8000/api/test/events \
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/node/events
 ```
 
-FastAPI publica un mensaje persistente en `test.events`. Fastify lo confirma manualmente despues de guardarlo de forma idempotente en `node_events`; si falla la persistencia, RabbitMQ lo reencola.
+FastAPI espera la confirmacion de Kafka al publicar en `test.events`. Fastify confirma el offset despues de guardar de forma idempotente en `node_events`; ante fallos de persistencia, el consumidor reintenta desde el ultimo offset confirmado. Los mensajes invalidos se conservan en `test.events.dlq`.
 
 ### Rate limit
 
@@ -195,7 +224,7 @@ Las solicitudes que superen el limite reciben `429`.
 
 ### Colección de Postman y pruebas automatizadas (Newman)
 
-El proyecto incluye la colección lista para usar en `postman/app-etapa1.postman_collection.json`, con pruebas funcionales de autenticación, validación RBAC, rutas públicas vs. protegidas, operaciones CRUD con caché Redis, mensajería asíncrona RabbitMQ y trazas en Tempo.
+El proyecto incluye la colección lista para usar en `postman/app-etapa1.postman_collection.json`, con pruebas funcionales de autenticación, validación RBAC, rutas públicas vs. protegidas, operaciones CRUD con caché Redis, mensajería asíncrona Kafka y trazas en Tempo.
 
 #### Variables requeridas en la colección
 

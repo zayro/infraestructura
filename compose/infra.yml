@@ -1,4 +1,4 @@
-# Datos y mensajeria: PostgreSQL, RabbitMQ y Redis (publicados solo en 127.0.0.1)
+# Datos y mensajeria: PostgreSQL, Kafka y Redis (publicados solo en 127.0.0.1)
 services:
   postgres:
     image: postgres:17-alpine
@@ -21,23 +21,54 @@ services:
     networks:
       - app-net
 
-  rabbitmq:
-    image: rabbitmq:4.1.5-management-alpine
-    container_name: app-rabbitmq
+  kafka:
+    image: apache/kafka:4.1.2
+    container_name: app-kafka
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-app}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-app}
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
     ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
+      - "127.0.0.1:29092:29092"
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+      - kafka-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - app-net
+
+  kafka-init:
+    image: apache/kafka:4.1.2
+    container_name: app-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-test.events}
+      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC:-test.events.dlq}
+    entrypoint: ["/bin/bash", "-ec"]
+    command:
+      - |
+        for topic in "$$KAFKA_TOPIC" "$$KAFKA_DLQ_TOPIC"; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 3 --replication-factor 1 --config retention.ms=604800000
+        done
     networks:
       - app-net
 
@@ -64,5 +95,5 @@ networks:
 
 volumes:
   postgres-data:
-  rabbitmq-data:
+  kafka-data:
   redis-data:

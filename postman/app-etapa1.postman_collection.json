@@ -300,7 +300,7 @@
           "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/test/items", "host": ["{{base_url}}"], "path": ["api", "test", "items"] } }
         },
         {
-          "name": "Events - crear (publica en RabbitMQ y registra published_by)",
+          "name": "Events - crear (publica en Kafka y registra published_by)",
           "event": [
             {
               "listen": "test",
@@ -320,7 +320,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\"name\": \"fastapi-event-jwt\"}" },
             "url": { "raw": "{{base_url}}/api/test/events", "host": ["{{base_url}}"], "path": ["api", "test", "events"] },
-            "description": "Guarda el evento en PostgreSQL y lo publica en RabbitMQ (consumido por Fastify)."
+            "description": "Guarda el evento en PostgreSQL y lo publica en Kafka (consumido por Fastify)."
           }
         },
         {
@@ -450,7 +450,7 @@
           }
         },
         {
-          "name": "Events - listar (incluye consumidos de RabbitMQ)",
+          "name": "Events - listar (incluye consumidos de Kafka)",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }],
           "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/node/events", "host": ["{{base_url}}"], "path": ["api", "node", "events"] } }
         },
