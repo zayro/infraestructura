@@ -1,5 +1,17 @@
 # Pipeline de observabilidad: OTel Collector -> Tempo/Loki, Prometheus, cAdvisor y Grafana
 services:
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.10.0
+    container_name: app-kafka-exporter
+    command: ["--kafka.server=kafka:9092"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - app-net
+
   otel-collector:
     build:
       context: ./observability
@@ -33,6 +45,8 @@ services:
       test-fastify-service:
         condition: service_healthy
       cadvisor:
+        condition: service_started
+      kafka-exporter:
         condition: service_started
     networks:
       - app-net

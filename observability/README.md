@@ -28,6 +28,11 @@ Los Dockerfiles de esta carpeta copian cada YAML a la ruta que espera su imagen 
 
 El Collector no procesa metricas: Prometheus las obtiene directamente de los endpoints `/metrics`.
 
+Kafka se monitorea con `kafka-exporter:9308` (brokers, topics, particiones y lag de grupos).
+Los servicios publican contadores y tiempos de publicacion/procesamiento en sus `/metrics`.
+El dashboard **Kafka - Mensajeria** se provisiona en Grafana. No se recopilan metricas JVM/JMX.
+OpenTelemetry propaga el contexto de las trazas en las cabeceras Kafka y Tempo conserva los spans.
+
 ## Persistencia y limites del entorno
 
 Compose conserva los datos de Prometheus, Loki, Tempo y Grafana en los volumenes `*-data`. Loki y Tempo usan almacenamiento local de instancia unica; son adecuados para desarrollo, no para alta disponibilidad. El stack tampoco define autenticacion para las APIs de Loki/Tempo ni politicas explicitas de retencion para Loki y Tempo. No deben exponerse tal cual a una red no confiable.

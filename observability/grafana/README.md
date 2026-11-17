@@ -20,6 +20,9 @@ La definicion habilita navegacion entre senales: en Loki, el campo JSON `trace_i
 
 El archivo `dashboards/app-overview.json` define el dashboard entregado con el stack. Para cambios reproducibles, edite el JSON y no solo el dashboard desde la interfaz web.
 
+`dashboards/kafka.json` agrega **Kafka - Mensajeria**: brokers, lag por grupo/topic/particion,
+tasas de publicacion y procesamiento, errores, DLQ y latencias p95.
+
 ## Acceso
 
 Compose publica Grafana en `http://localhost:3000`. Las credenciales iniciales se leen de `GRAFANA_ADMIN_USER` y `GRAFANA_ADMIN_PASSWORD`; vea `.env.example`. El registro de usuarios esta deshabilitado. Cambie las credenciales antes de compartir el entorno.

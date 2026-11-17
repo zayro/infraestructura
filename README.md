@@ -71,6 +71,9 @@ La escritura de FastAPI en PostgreSQL y su publicacion siguen siendo dos operaci
 
 No se transfieren automaticamente mensajes pendientes de RabbitMQ ni se elimina su volumen anterior. Antes de migrar un entorno con mensajes pendientes, detener publicaciones y drenar la cola con los servicios anteriores.
 
+`kafka-exporter` expone metricas de brokers, topics y offsets a Prometheus; Grafana incluye **Kafka - Mensajeria** con lag por grupo/particion, tasas, errores, DLQ y latencias. No incluye metricas JVM/JMX.
+Las cabeceras W3C de OpenTelemetry conectan el span productor con el consumidor en Tempo; los logs de consumo en Loki incluyen el mismo `trace_id`.
+
 ```powershell
 docker compose up -d --build
 docker compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka:9092 --describe --group test-fastify-service

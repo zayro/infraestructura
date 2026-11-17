@@ -6,6 +6,7 @@
 
 | Trabajo (`job_name`) | Destino interno | Informacion recogida |
 |---|---|---|
+| `kafka` | `kafka-exporter:9308/metrics` | Brokers, topics, particiones y retraso de consumidores. |
 | `traefik` | `traefik:8082/metrics` | Trafico de entrada, estados HTTP y latencia del proxy. |
 | `test-fastapi-service` | `test-fastapi-service:8083/metrics` | Metricas de la aplicacion FastAPI. |
 | `test-fastify-service` | `test-fastify-service:8084/metrics` | Metricas de la aplicacion Fastify. |
