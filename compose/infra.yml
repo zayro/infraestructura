@@ -72,6 +72,32 @@ services:
     networks:
       - app-net
 
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0
+    container_name: app-kafka-ui
+    restart: unless-stopped
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      AUTH_TYPE: DISABLED
+      DYNAMIC_CONFIG_ENABLED: "false"
+      JAVA_OPTS: -Xms128m -Xmx384m
+    ports:
+      - "127.0.0.1:${KAFKA_UI_PORT:-8180}:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - app-net
+
   redis:
     image: redis:7-alpine
     container_name: app-redis

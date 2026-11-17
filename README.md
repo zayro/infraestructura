@@ -42,6 +42,7 @@ Todos los contenedores comparten la red Docker `app-observability-net`. Los micr
 | `postgres` | Persistencia de items y eventos | `127.0.0.1:5432` |
 | `redis` | Cache-aside con TTL de 30 s | `127.0.0.1:6379` |
 | `kafka` | Topic retenido `test.events` | `127.0.0.1:29092` |
+| `kafka-ui` | Interfaz Kafbat para topics, mensajes y grupos de consumidores | `127.0.0.1:8180` |
 | `otel-collector` | Recibe OTLP y reenvia senales | Interna |
 | `prometheus` | Metricas | `:9090` |
 | `loki` / `tempo` | Logs / trazas | `:3100` / `:3200` |
@@ -55,6 +56,12 @@ Kafka 4.1.2 utiliza KRaft con un broker/controlador para desarrollo. No requiere
 Los topics `test.events` y `test.events.dlq` tienen tres particiones, replica unica y retencion de siete dias; `kafka-init` los crea antes de iniciar las aplicaciones.
 Los nombres se configuran con `KAFKA_TOPIC` y `KAFKA_DLQ_TOPIC`; el grupo con `KAFKA_CONSUMER_GROUP`.
 Los clientes de contenedores usan `kafka:9092`; los del host, `localhost:29092`.
+
+Kafka UI (Kafbat 1.5.0) se inicia como `app-kafka-ui` y se conecta al cluster `local`.
+Abra http://localhost:8180 para consultar topics, mensajes, particiones y grupos de consumidores.
+La interfaz permite administrar el cluster y esta disponible sin autenticacion solo en la interfaz local `127.0.0.1`, para este entorno de desarrollo.
+El puerto se configura con `KAFKA_UI_PORT` en `.env` (predeterminado: `8180`).
+Para levantar solo la interfaz y sus dependencias: `docker compose up -d kafka-ui`.
 
 Compose incluye los checkouts locales de ambos repositorios. Si no existen, prepararlos desde la raiz:
 
@@ -305,6 +312,7 @@ histogram_quantile(0.95, sum by (le, service) (rate(app_http_request_duration_se
 | API / Traefik | http://localhost:8000 |
 | Dashboard de Traefik | http://localhost:8088/dashboard/ |
 | Grafana | http://localhost:3000 |
+| Kafka UI | http://localhost:8180 |
 | Prometheus | http://localhost:9090 |
 | cAdvisor | http://localhost:8081 |
 | Loki | http://localhost:3100/ready |
