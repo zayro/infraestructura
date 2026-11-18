@@ -12,3 +12,4 @@ include:
   # Checkouts locales de los repositorios de aplicaciones, con la misma version del contrato Kafka.
   - path: services/test-fastapi/compose.yaml
   - path: services/test-fastify/compose.yaml
+  - path: services/microFrontend/compose.yaml
